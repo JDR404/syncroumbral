@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Variante opcional con "Mostrar sobre otras apps". Se activa compilando con -PconOverlay=true (ver docs/INSTALACION.md).
+  Permite que Android deje abrir la pantalla de una llamada de WhatsApp desde segundo plano. Junto al acceso a notificaciones
+  es un patrón que Google Play Protect puede bloquear en instalaciones manuales: instálala por adb si pasa.
+-->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
+</manifest>

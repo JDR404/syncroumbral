@@ -1,0 +1,279 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SyncroUmbral</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <!-- Iconos (se usan con <svg class="ic"><use href="#i-..."/></svg>) -->
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+    <defs>
+      <symbol id="i-lock" viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="9" rx="2.5" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M8 11V8a4 4 0 0 1 8 0v3" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><circle cx="12" cy="15.5" r="1.3" fill="currentColor"/></symbol>
+      <symbol id="i-folder" viewBox="0 0 24 24"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></symbol>
+      <symbol id="i-bell" viewBox="0 0 24 24"><path d="M6 17v-6a6 6 0 1 1 12 0v6l1.5 2h-15z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M10 21a2 2 0 0 0 4 0" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></symbol>
+      <symbol id="i-chat" viewBox="0 0 24 24"><path d="M4 5h16v11H9.5L5 20v-4H4z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M8 9h8M8 12h5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></symbol>
+      <symbol id="i-grid" viewBox="0 0 24 24"><g fill="currentColor"><circle cx="6" cy="6" r="1.8"/><circle cx="12" cy="6" r="1.8"/><circle cx="18" cy="6" r="1.8"/><circle cx="6" cy="12" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="18" cy="12" r="1.8"/><circle cx="6" cy="18" r="1.8"/><circle cx="12" cy="18" r="1.8"/><circle cx="18" cy="18" r="1.8"/></g></symbol>
+      <symbol id="i-gear" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.2" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M12 2.5v3M12 18.5v3M2.5 12h3M18.5 12h3M5.3 5.3l2.1 2.1M16.6 16.6l2.1 2.1M5.3 18.7l2.1-2.1M16.6 7.4l2.1-2.1" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></symbol>
+      <symbol id="i-phone" viewBox="0 0 24 24"><rect x="7.5" y="3" width="9" height="18" rx="2" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M11 18h2" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></symbol>
+      <symbol id="i-upload" viewBox="0 0 24 24"><path d="M12 16V5M7.5 9.5 12 5l4.5 4.5M5 19h14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+      <symbol id="i-download" viewBox="0 0 24 24"><path d="M12 4v11M7.5 10.5 12 15l4.5-4.5M5 19h14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+      <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="6" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="m16 16 4 4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></symbol>
+      <symbol id="i-qr" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.8"><rect x="4" y="4" width="6" height="6" rx="1"/><rect x="14" y="4" width="6" height="6" rx="1"/><rect x="4" y="14" width="6" height="6" rx="1"/></g><path d="M14 14h2v2h-2zM18 14h2v2h-2zM16 18h2v2h-2z" fill="currentColor"/></symbol>
+      <symbol id="i-clear" viewBox="0 0 24 24"><path d="M5 8h14M5 12h14M5 16h9" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></symbol>
+      <symbol id="i-usb" viewBox="0 0 24 24"><path d="M12 3v14M12 17a2 2 0 1 0 0 4 2 2 0 0 0 0-4zM12 9l4-2v3M12 12l-4-2V8" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+      <symbol id="i-phonecall" viewBox="0 0 24 24"><path d="M6.5 4h3l1.5 4-2 1.5a11 11 0 0 0 5.5 5.5L16 13l4 1.5v3a2 2 0 0 1-2 2A14 14 0 0 1 4.5 6a2 2 0 0 1 2-2z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></symbol>
+    </defs>
+  </svg>
+
+  <!-- Primera vez: crear la clave de respaldo -->
+  <main id="view-setup" class="center hidden">
+    <div class="card narrow">
+      <div class="lock-badge"><svg class="ic"><use href="#i-lock"/></svg></div>
+      <h1>Bienvenido a SyncroUmbral</h1>
+      <p class="muted">Crea una clave de respaldo. Solo la usarás para abrir la aplicación cuando tu móvil no esté disponible.</p>
+      <input id="setup-pw" type="password" placeholder="Clave (mínimo 6 caracteres)" autocomplete="off">
+      <input id="setup-pw2" type="password" placeholder="Repite la clave" autocomplete="off">
+      <button id="setup-btn" class="primary">Crear clave</button>
+      <p id="setup-err" class="error"></p>
+    </div>
+  </main>
+
+  <!-- Bloqueado: no hay ningún dato de usuario en el DOM -->
+  <main id="view-lock" class="center hidden">
+    <div class="ghosts" aria-hidden="true">
+      <span class="ghost g1"></span><span class="ghost g2"></span><span class="ghost g3"></span>
+      <span class="ghost g4"></span><span class="ghost g5"></span>
+    </div>
+    <div class="card narrow glass">
+      <div class="lock-badge"><svg class="ic"><use href="#i-lock"/></svg></div>
+      <h1>SyncroUmbral bloqueado</h1>
+      <p class="muted" id="lock-hint">Esperando a tu móvil. Se abrirá solo cuando esté en la red o conectado por cable.</p>
+      <input id="lock-pw" type="password" placeholder="O escribe tu clave" autocomplete="off">
+      <button id="lock-btn" class="primary">Desbloquear</button>
+      <p id="lock-err" class="error"></p>
+    </div>
+  </main>
+
+  <!-- Desbloqueado -->
+  <main id="view-main" class="hidden">
+    <aside class="side">
+      <div class="brand"><svg class="ic"><use href="#i-lock"/></svg><span>SyncroUmbral</span></div>
+      <nav class="tabs">
+        <button id="tab-btn-files" class="tab active"><svg class="ic"><use href="#i-folder"/></svg><span class="tab-label">Archivos</span></button>
+        <button id="tab-btn-notifs" class="tab"><svg class="ic"><use href="#i-bell"/></svg><span class="tab-label">Notificaciones</span><span id="notif-count" class="count hidden"></span></button>
+        <button id="tab-btn-web" class="tab"><svg class="ic"><use href="#i-chat"/></svg><span class="tab-label">Mensajería web</span></button>
+        <button id="tab-btn-apps" class="tab"><svg class="ic"><use href="#i-grid"/></svg><span class="tab-label">Aplicaciones</span></button>
+        <button id="tab-btn-settings" class="tab"><svg class="ic"><use href="#i-gear"/></svg><span class="tab-label">Móviles y ajustes</span></button>
+      </nav>
+      <div class="devcard">
+        <div class="dev-row">
+          <span id="dot" class="dev-ic"><svg class="ic"><use href="#i-phone"/></svg></span>
+          <div class="dev-txt"><div id="status-name" class="dev-name"></div><div id="status-sub" class="dev-sub"></div></div>
+        </div>
+        <div id="status-warn" class="dev-warn hidden"></div>
+        <button id="lock-now" class="primary"><svg class="ic"><use href="#i-lock"/></svg>Bloquear ahora</button>
+      </div>
+    </aside>
+
+    <div class="content">
+    <section id="tab-files">
+      <h1 class="page-title">Archivos</h1>
+      <div class="clipbar">
+        <input id="clip-text" type="text" placeholder="Texto para el portapapeles del móvil (se copia ahí; luego pegas en cualquier app)" autocomplete="off">
+        <button id="clip-send" class="tonal">Copiar en el móvil</button>
+        <span id="clip-msg" class="muted"></span>
+        <label class="check"><input type="checkbox" id="show-hidden"><span>Mostrar ocultos</span></label>
+      </div>
+      <div class="panes">
+        <div class="pane" id="pane-pc">
+          <div class="pane-head">
+            <strong>Este PC</strong>
+            <span class="spacer"></span>
+            <button class="small" data-act="up">Subir</button>
+            <button class="small" data-act="refresh">Actualizar</button>
+          </div>
+          <div id="places" class="places" aria-label="Carpetas del PC"></div>
+          <div class="path" data-role="path"></div>
+          <ul class="list" data-role="list"></ul>
+          <div class="pane-foot muted" data-role="foot"></div>
+        </div>
+
+        <div class="mid">
+          <button id="to-phone" class="primary" title="Copiar lo seleccionado en el PC a la carpeta abierta del móvil"><svg class="ic"><use href="#i-upload"/></svg>Enviar</button>
+          <button id="to-pc" class="container" title="Copiar lo seleccionado del móvil a la carpeta abierta del PC"><svg class="ic"><use href="#i-download"/></svg>Traer</button>
+          <div class="mid-label">En el móvil</div>
+          <button class="outline" id="phone-mkdir">Carpeta nueva</button>
+          <button class="outline" id="phone-rename">Renombrar</button>
+          <button class="outline danger" id="phone-delete">Eliminar</button>
+        </div>
+
+        <div class="pane" id="pane-phone">
+          <div class="pane-head">
+            <strong>Móvil</strong>
+            <span class="spacer"></span>
+            <button class="small" data-act="up">Subir</button>
+            <button class="small" data-act="refresh">Actualizar</button>
+          </div>
+          <div class="path" data-role="path"></div>
+          <ul class="list" data-role="list"></ul>
+          <div class="pane-foot muted" data-role="foot"></div>
+        </div>
+      </div>
+
+      <div id="transfers"></div>
+    </section>
+
+    <section id="tab-notifs" class="hidden">
+      <h1 class="page-title">Notificaciones</h1>
+      <div class="notif-bar">
+        <button id="notifs-clear" class="outline"><svg class="ic"><use href="#i-clear"/></svg>Limpiar todas</button>
+        <span id="notifs-clear-msg" class="muted"></span>
+      </div>
+      <p id="notifs-hint" class="muted"></p>
+      <div id="muted-bar" class="hidden"></div>
+      <div id="notifs-list"></div>
+    </section>
+
+    <section id="tab-web" class="hidden">
+      <h1 class="page-title">Mensajería web</h1>
+      <div class="web-bar">
+        <div id="web-tabs" class="web-tabs"></div>
+        <span class="spacer"></span>
+        <span id="web-msg" class="muted"></span>
+        <button id="web-forget" class="outline danger hidden">Olvidar sesión</button>
+      </div>
+      <div id="web-stage">
+        <p id="web-hint" class="muted">Elige un servicio. Se muestra aquí mismo, con tu sesión guardada: inicias sesión una vez
+          y no vuelves a escanear el código. Funcionan aunque el móvil esté apagado.</p>
+      </div>
+    </section>
+
+    <section id="tab-apps" class="hidden">
+      <h1 class="page-title">Aplicaciones</h1>
+      <div class="apps-bar">
+        <label class="search"><svg class="ic"><use href="#i-search"/></svg><input id="apps-search" type="search" placeholder="Buscar aplicación" autocomplete="off"></label>
+        <label class="check"><input type="checkbox" id="apps-system"><span>Mostrar apps del sistema</span></label>
+        <span class="spacer"></span>
+        <span id="apps-count" class="muted"></span>
+        <button id="apps-refresh">Actualizar</button>
+      </div>
+      <div class="apps-actions">
+        <button data-app="pc" class="primary" title="Abre la app en una ventana del PC, sin ocupar la pantalla del móvil">Abrir en el PC</button>
+        <button data-app="launch">Abrir en el móvil</button>
+        <button data-app="stop">Detener</button>
+        <button data-app="settings">Ajustes de la app</button>
+        <button data-app="pull">Extraer APK al PC</button>
+        <button data-app="clear" class="danger">Borrar datos</button>
+        <button data-app="uninstall" class="danger">Desinstalar</button>
+      </div>
+      <p id="apps-msg" class="muted"></p>
+      <ul id="apps-list" class="list pane"></ul>
+    </section>
+
+    <section id="tab-settings" class="hidden">
+      <h1 class="page-title">Móviles y ajustes</h1>
+      <div class="grid2">
+      <section class="card">
+        <h2>Vincular un móvil</h2>
+        <p class="muted">En la app SyncroUmbral del móvil toca "Escanear QR del PC". El código caduca en 5 minutos y sirve una sola vez.</p>
+        <button id="pair-btn" class="primary"><svg class="ic"><use href="#i-qr"/></svg>Mostrar QR de vinculación</button>
+        <div id="pair-box" class="hidden">
+          <div id="qr"></div>
+          <p class="muted">Huella de este PC: <strong id="pair-fp"></strong>. El móvil pedirá confirmar y mostrará la misma huella: si no coincide, cancela.</p>
+          <details>
+            <summary>Sin cámara: copia el código</summary>
+            <textarea id="payload" readonly rows="4"></textarea>
+          </details>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2>Móviles vinculados</h2>
+        <ul id="devices"></ul>
+        <p id="no-devices" class="muted">Ninguno todavía.</p>
+      </section>
+
+      <section class="card">
+        <h2>Funcionamiento</h2>
+        <p class="muted">SyncroUmbral queda en la bandeja del sistema al cerrar la ventana, para que las notificaciones sigan llegando.
+          Para cerrarlo del todo usa "Salir" en el menú del icono de la bandeja.</p>
+        <label class="check"><input type="checkbox" id="autostart"><span>Iniciar con Windows (en segundo plano)</span></label>
+        <p id="autostart-msg" class="muted"></p>
+      </section>
+
+      <section class="card">
+        <h2>Modo de uso</h2>
+        <div class="seg" id="mode-seg" role="group" aria-label="Modo de uso">
+          <button id="mode-basic" type="button">Básico</button>
+          <button id="mode-full" type="button">Completo</button>
+        </div>
+        <p id="mode-now" class="muted"></p>
+        <details>
+          <summary>Qué incluye cada modo</summary>
+          <p class="muted"><b>Básico (sin depuración):</b> bloqueo por presencia, archivos, notificaciones con respuesta, compartir
+            con el PC, portapapeles, llamadas, mensajería web y lista de apps. No hace falta activar nada especial en el móvil.</p>
+          <p class="muted"><b>Completo (con depuración inalámbrica):</b> además abre las apps del móvil en ventanas del PC y permite
+            detener, borrar datos, desinstalar y extraer APK. La depuración da al PC emparejado control total del móvil y algunas
+            apps (bancos) se niegan a abrirse mientras está activa: actívala solo cuando la necesites y desactívala al terminar.</p>
+        </details>
+      </section>
+
+      <section class="card wide">
+        <h2>Llamadas</h2>
+        <p class="muted">Cuando entra una llamada (del operador o de WhatsApp) puedes contestarla o rechazarla desde el PC.
+          El audio de la conversación sigue en el móvil.</p>
+        <label class="check"><input type="checkbox" id="mute-call"><span>Silenciar el resto de sonidos del PC mientras suena una llamada</span></label>
+        <p id="call-perms" class="muted"></p>
+      </section>
+
+      <section class="card">
+        <h2>Herramientas</h2>
+        <p class="muted">Algunas funciones usan programas externos. Si faltan, SyncroUmbral los descarga de sus páginas oficiales
+          a su propia carpeta (sin permisos de administrador): <b>adb</b> de Google y <b>scrcpy</b> de GitHub (versión fija, se verifica su hash).</p>
+        <ul id="tools-list"></ul>
+        <p id="tools-msg" class="muted"></p>
+      </section>
+
+      <section class="card" id="card-wireless">
+        <h2>Depuración inalámbrica</h2>
+        <p class="muted">En el móvil: Opciones de desarrollador, Depuración inalámbrica, "Vincular dispositivo con código de sincronización".
+          Aparecerá una dirección y un código de 6 dígitos. Solo hace falta la primera vez.</p>
+        <div class="pair-row">
+          <input id="wpair-addr" type="text" placeholder="Dirección: 192.168.1.20:37000" autocomplete="off">
+          <input id="wpair-code" type="text" placeholder="Código" maxlength="6" autocomplete="off">
+          <button id="wpair-btn" class="primary">Emparejar</button>
+        </div>
+        <button id="wpair-detect" class="tonal small">Detectar el móvil en la red</button>
+        <p id="wpair-msg" class="muted"></p>
+      </section>
+
+      <section class="card wide">
+        <h2>Conexión por cable</h2>
+        <p class="muted">Conecta el móvil por USB con la depuración USB activada y pulsa el botón.</p>
+        <button id="cable-btn" class="tonal"><svg class="ic"><use href="#i-usb"/></svg>Activar modo cable</button>
+        <p id="cable-msg" class="muted"></p>
+      </section>
+      </div>
+    </section>
+    </div>
+  </main>
+
+  <!-- Ventana de diálogo propia (los diálogos del navegador no son fiables en la app) -->
+  <div id="modal" class="modal hidden">
+    <div class="card dialog">
+      <h2 id="modal-title"></h2>
+      <p id="modal-text" class="muted"></p>
+      <input id="modal-input" type="text" autocomplete="off">
+      <div class="dialog-actions">
+        <button id="modal-cancel" class="tonal">Cancelar</button>
+        <button id="modal-ok" class="primary">Aceptar</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="notif.js"></script>
+  <script src="main.js"></script>
+</body>
+</html>

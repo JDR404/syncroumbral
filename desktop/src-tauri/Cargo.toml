@@ -1,0 +1,52 @@
+[package]
+name = "syncroumbral"
+version = "0.1.0"
+edition = "2021"
+
+[features]
+# Solo para pruebas: abre un puerto de depuración en las ventanas web. No usar en la versión instalada.
+webdebug = []
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = ["tray-icon", "unstable"] }
+tauri-plugin-single-instance = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tokio = { version = "1", features = ["rt-multi-thread", "net", "time", "sync", "macros", "io-util", "fs"] }
+tokio-rustls = { version = "0.26", default-features = false, features = ["ring", "tls12"] }
+rustls = { version = "0.23", default-features = false, features = ["ring", "std", "tls12"] }
+tokio-tungstenite = "0.26"
+futures-util = "0.3"
+rcgen = "0.13"
+p256 = { version = "0.13", features = ["ecdsa", "pkcs8"] }
+rand = "0.8"
+base64 = "0.22"
+sha2 = "0.10"
+hex = "0.4"
+qrcode = "0.14"
+local-ip-address = "0.6"
+argon2 = "0.5"
+anyhow = "1"
+mdns-sd = "0.21.7"
+ureq = { version = "2", default-features = false, features = ["tls", "json"] }
+zip = { version = "9.4.1", default-features = false, features = ["deflate"] }
+
+hmac = "0.12"
+
+[target.'cfg(windows)'.dependencies]
+windows-sys = { version = "0.61", features = ["Win32_Foundation", "Win32_Security_Cryptography"] }
+# Core Audio: silenciar el resto del PC mientras suena una llamada.
+windows = { version = "0.62", features = ["Win32_Foundation", "Win32_Media_Audio", "Win32_System_Com", "Win32_UI_Shell"] }
+
+[profile.release]
+opt-level = "s"
+lto = true
+codegen-units = 1
+strip = true
+panic = "abort"
+
+[dev-dependencies]
+tauri = { version = "2", features = ["test"] }

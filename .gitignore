@@ -1,0 +1,12 @@
+target/
+node_modules/
+gen/
+.gradle/
+build/
+local.properties
+*.apk
+.adb-serial
+
+keystore.properties
+*.jks
+*.keystore
