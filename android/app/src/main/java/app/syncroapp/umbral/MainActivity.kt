@@ -123,7 +123,18 @@ class MainActivity : Activity() {
             orientation = LinearLayout.VERTICAL
             setPadding(dp(18), dp(56), dp(18), dp(24))
         }
-        root.addView(text("SyncroUmbral", 28f, PRIMARY, true).apply { setPadding(dp(6), 0, 0, dp(14)) })
+        // Cabecera con el logo
+        val header = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(dp(6), 0, 0, dp(14))
+        }
+        header.addView(android.widget.ImageView(this).apply {
+            setImageResource(R.drawable.ic_logo)
+            contentDescription = "SyncroUmbral"
+        }, LinearLayout.LayoutParams(dp(44), dp(44)).apply { rightMargin = dp(12) })
+        header.addView(text("SyncroUmbral", 28f, PRIMARY, true))
+        root.addView(header)
 
         // Conexión
         val conn = card()

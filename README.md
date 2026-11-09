@@ -1,3 +1,5 @@
+<p align="center"><img src="docs/brand/logo-512.png" alt="SyncroUmbral" width="128"></p>
+
 # SyncroUmbral
 
 > Parte del portafolio de **SyncroApp** (en pruebas). Desarrollador: SyncroApp, `syncroapp.dev@gmail.com`.

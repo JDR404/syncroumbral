@@ -43,7 +43,7 @@ class LinkService : Service() {
 
     private fun buildNotification(): Notification =
         NotificationCompat.Builder(this, CHANNEL)
-            .setSmallIcon(android.R.drawable.ic_lock_idle_lock)
+            .setSmallIcon(R.drawable.ic_stat_syncro)
             .setContentTitle("SyncroUmbral")
             .setContentText(Status.text)
             .setOngoing(true)
