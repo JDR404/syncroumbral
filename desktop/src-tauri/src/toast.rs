@@ -4,7 +4,7 @@
 use tauri::{AppHandle, LogicalSize, Manager, PhysicalPosition, Runtime, WebviewUrl, WebviewWindow, WebviewWindowBuilder};
 
 pub const LABEL: &str = "toast";
-const WIDTH: f64 = 380.0;
+const WIDTH: f64 = 340.0;
 const MARGIN: f64 = 16.0;
 
 pub fn show<R: Runtime>(h: &AppHandle<R>) {
@@ -16,6 +16,8 @@ pub fn show<R: Runtime>(h: &AppHandle<R>) {
         .title("SyncroUmbral: notificaciones")
         .inner_size(WIDTH, 140.0)
         .decorations(false)
+        .transparent(true) // sin marco rectangular detrás: solo se ven las tarjetas redondeadas
+        .shadow(false)
         .always_on_top(true)
         .skip_taskbar(true)
         .resizable(false)

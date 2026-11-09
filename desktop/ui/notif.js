@@ -130,7 +130,7 @@
         try { await invoke('notif_remove_local', { key: n.key }); } catch (e) { setStatus(String(e), true); }
       };
       bar.append(x);
-    } else {
+    } else if (!n.call) { // silenciar la app de teléfono no tiene sentido en una llamada
       const m = el('button', 'small', 'Silenciar app');
       m.title = 'No mostrar más notificaciones de esta app en el PC';
       m.onclick = async () => {

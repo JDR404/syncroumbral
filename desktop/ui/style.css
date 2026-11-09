@@ -227,18 +227,20 @@ textarea { font-family: Consolas, monospace; font-size: 12px; border-radius: var
 .n-status { font-size: 13px; color: var(--muted); }
 .n-status:not(:empty) { margin-top: 8px; }
 .n-status.bad { color: var(--bad); }
-/* Ventana emergente: versión compacta de la tarjeta */
-body.toast { background: var(--bg); overflow: hidden; }
-#toast-root { padding: 8px 8px 2px; }
-#toast-root .notif { background: var(--surface); border-radius: 22px; padding: 11px 14px 11px 58px; margin-bottom: 6px; min-height: 0; }
-#toast-root .notif::before { left: 12px; top: 12px; width: 36px; height: 36px; background-size: 18px; }
+/* Ventana emergente: versión compacta de la tarjeta, sobre fondo transparente y sin bordes de color */
+html.toast, body.toast { background: transparent; overflow: hidden; user-select: none; -webkit-user-select: none; }
+#toast-root { padding: 6px 8px 8px; }
+#toast-root .notif { background: var(--surface); border-radius: 20px; padding: 9px 12px 10px 50px; margin-bottom: 6px; min-height: 0;
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, .05), 0 8px 22px rgba(0, 0, 0, .5); }
+#toast-root .notif.call, #toast-root .notif.incoming { box-shadow: 0 0 0 1px rgba(255, 255, 255, .05), 0 8px 22px rgba(0, 0, 0, .5); }
+#toast-root .notif::before { left: 10px; top: 10px; width: 30px; height: 30px; background-size: 16px; }
 #toast-root .n-head { font-size: 12px; }
 #toast-root .n-head .n-close { padding: 2px 12px; font-size: 12px; }
 #toast-root .n-title { font-size: 15px; margin: 1px 0; }
 #toast-root .n-text { font-size: 13px; -webkit-line-clamp: 3; }
-#toast-root .n-callbadge { font-size: 10px; padding: 1px 9px; margin-bottom: 4px; }
-#toast-root .n-callbtns { gap: 8px; margin-top: 8px; }
-#toast-root .n-callbtns button { height: 36px; padding: 0 20px; font-size: 13px; }
+#toast-root .n-callbadge { font-size: 9px; padding: 0 8px; margin-bottom: 2px; line-height: 16px; }
+#toast-root .n-callbtns { gap: 8px; margin-top: 6px; }
+#toast-root .n-callbtns button { height: 32px; padding: 0 18px; font-size: 13px; }
 #toast-root .n-reply { margin-top: 8px; }
 #toast-root .n-reply input { padding: 7px 14px; font-size: 13px; }
 #toast-root .n-reply button { min-width: 36px; height: 36px; padding: 0 12px; }
