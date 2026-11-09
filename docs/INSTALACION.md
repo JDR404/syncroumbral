@@ -156,6 +156,8 @@ Inicias sesión una vez (en WhatsApp, escaneando el QR) y las siguientes veces e
   (**Colgar** si ya está en curso) y suena un aviso en el PC hasta que se atiende. Mientras suena, SyncroUmbral **silencia el resto de sonidos del PC** (música,
   vídeos...) para que se oiga solo el timbre; al terminar los restaura tal como estaban, y lo que ya tenías en silencio no se toca. Se desactiva en
   Móviles y ajustes, tarjeta Llamadas.
+  Al contestar desde el PC **se abre la aplicación con una pantalla de llamada** (quién llama, cronómetro y botón Colgar; se puede ocultar) y la ventana
+  emergente queda visible con el cronómetro mientras dure. Al bloquear la aplicación desaparece.
   Para que contestar funcione hacen falta permisos en la app del móvil (botones en su pantalla principal):
   - **Permitir contestar llamadas**: para las llamadas normales (línea del operador). Se contestan y cuelgan con la API de telefonía de Android.
   - Para las llamadas de WhatsApp y similares, contestar abre la pantalla de la llamada y Android 10 o superior prohíbe que una app en segundo plano abra pantallas.
