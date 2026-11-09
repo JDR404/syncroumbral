@@ -9,8 +9,8 @@ let hovering = false;
 function busy() {
   // No se cierra sola mientras el usuario escribe o apunta con el ratón.
   const typing = [...root.querySelectorAll('input')].some((i) => i.value || document.activeElement === i);
-  // Una llamada no se oculta sola: hay que contestarla o rechazarla.
-  const ringing = !!root.querySelector('.notif.incoming');
+  // Una llamada (sonando o en curso) no se oculta sola: se cierra al terminar la llamada.
+  const ringing = !!root.querySelector('.notif.call');
   return hovering || typing || ringing;
 }
 

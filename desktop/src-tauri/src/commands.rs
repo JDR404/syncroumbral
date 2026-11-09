@@ -344,8 +344,11 @@ pub async fn notif_action(core: Shared<'_>, key: String, index: u32) -> Result<(
 
 /// Contesta una llamada entrante (normal o de una app como WhatsApp). Devuelve por dónde se hizo ("telefonia" o "notificacion").
 #[tauri::command]
-pub async fn call_answer(core: Shared<'_>, key: String) -> Result<String, String> {
+pub async fn call_answer(h: AppHandle, core: Shared<'_>, key: String) -> Result<String, String> {
     let r = core.call("call_answer", json!({ "key": key })).await?;
+    // Al contestar desde el PC se abre la aplicación: la pantalla de llamada aparece sola en cuanto el móvil
+    // confirma que la llamada está en curso.
+    crate::shell::open_main(&h);
     Ok(r["via"].as_str().unwrap_or("").to_string())
 }
 

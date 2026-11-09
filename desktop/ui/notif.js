@@ -10,6 +10,21 @@
     return `hace ${Math.floor(s / 86400)} d`;
   }
 
+  // Inicio (hora local del PC) de cada llamada en curso, por clave de notificación.
+  const callStart = new Map();
+  function fmtDur(ms) {
+    const s = Math.max(0, Math.floor(ms / 1000));
+    const mm = String(Math.floor(s / 60)).padStart(2, '0');
+    return s >= 3600 ? `${Math.floor(s / 3600)}:${mm}:${String(s % 60).padStart(2, '0')}` : `${mm}:${String(s % 60).padStart(2, '0')}`;
+  }
+  // Un solo temporizador para todos los cronómetros visibles (tarjetas y pantalla de llamada).
+  setInterval(() => {
+    for (const t of document.querySelectorAll('.n-timer')) {
+      const start = callStart.get(t.dataset.key);
+      if (start) t.textContent = fmtDur(Date.now() - start);
+    }
+  }, 1000);
+
   function el(tag, cls, text) {
     const e = document.createElement(tag);
     if (cls) e.className = cls;
@@ -25,7 +40,16 @@
     else if (n.call) root.append(el('div', 'n-callbadge ongoing', 'Llamada en curso'));
 
     const head = el('div', 'n-head');
-    head.append(el('span', 'n-app', n.app || n.pkg), el('span', 'n-time', ago(n.when)));
+    if (n.call && !n.incoming) {
+      // Llamada en curso: cronómetro desde que el PC la vio en curso (lo actualiza el temporizador de abajo).
+      if (!callStart.has(n.key)) callStart.set(n.key, Date.now());
+      const t = el('span', 'n-time n-timer', fmtDur(Date.now() - callStart.get(n.key)));
+      t.dataset.key = n.key;
+      head.append(el('span', 'n-app', n.app || n.pkg), t);
+    } else {
+      callStart.delete(n.key);
+      head.append(el('span', 'n-app', n.app || n.pkg), el('span', 'n-time', ago(n.when)));
+    }
     if (opts.onClose) {
       const x = el('button', 'n-close small', 'Cerrar');
       x.onclick = opts.onClose;
@@ -162,8 +186,9 @@
   }
 
   function removeCard(container, key) {
+    callStart.delete(key);
     container.querySelector(`[data-key="${CSS.escape(key)}"]`)?.remove();
   }
 
-  window.NotifUI = { card, replaceCard, removeCard };
+  window.NotifUI = { card, replaceCard, removeCard, callStart, fmtDur };
 })();

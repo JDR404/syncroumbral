@@ -537,7 +537,37 @@ setInterval(() => { if (!$('tab-web').classList.contains('hidden')) loadWeb(); }
 const notifsList = $('notifs-list');
 let notifGranted = null;
 
+// Pantalla de llamada: aparece mientras haya una llamada en curso (la leemos de las tarjetas de notificación) y se puede ocultar.
+const dismissedCalls = new Set();
+let callShown = false;
+function updateCallScreen() {
+  const card = state && !state.locked ? notifsList.querySelector('.notif.call:not(.incoming)') : null;
+  const key = card?.dataset.key;
+  const show = !!card && !dismissedCalls.has(key);
+  if (show) {
+    $('call-app').textContent = card.querySelector('.n-app')?.textContent || '';
+    $('call-name').textContent = card.querySelector('.n-title')?.textContent || 'Llamada en curso';
+    $('call-timer').dataset.key = key;
+    const start = NotifUI.callStart.get(key);
+    $('call-timer').textContent = NotifUI.fmtDur(start ? Date.now() - start : 0);
+    $('call-screen').dataset.key = key;
+  }
+  if (show === callShown) return;
+  callShown = show;
+  $('call-screen').classList.toggle('hidden', !show);
+  $('call-msg').textContent = '';
+  if (show) invoke('web_hide'); // un servicio web integrado taparía la pantalla
+  else if (!$('tab-web').classList.contains('hidden')) placeWeb();
+}
+$('call-hang').onclick = async () => {
+  $('call-msg').textContent = 'Un momento';
+  try { await invoke('call_end', { key: $('call-screen').dataset.key }); $('call-msg').textContent = ''; }
+  catch (e) { $('call-msg').textContent = String(e); }
+};
+$('call-hide').onclick = () => { dismissedCalls.add($('call-screen').dataset.key); updateCallScreen(); };
+
 function notifRefresh() {
+  updateCallScreen();
   const n = notifsList.children.length;
   $('notif-count').textContent = n;
   $('notif-count').classList.toggle('hidden', !n);
@@ -611,6 +641,8 @@ function clearNotifsUI() {
   notifsList.replaceChildren();
   $('notif-count').classList.add('hidden');
   $('notifs-hint').textContent = '';
+  dismissedCalls.clear();
+  updateCallScreen();
 }
 
 listen('notif', (e) => {

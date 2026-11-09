@@ -258,6 +258,22 @@
       </div>
     </section>
     </div>
+
+    <!-- Pantalla de llamada: cubre el contenido mientras hay una llamada en curso (dentro de la vista principal: al bloquear desaparece) -->
+    <div id="call-screen" class="call-screen hidden">
+      <div class="call-card">
+        <div class="call-avatar"><svg class="ic"><use href="#i-phonecall"/></svg></div>
+        <div id="call-app" class="call-app"></div>
+        <div id="call-name" class="call-name"></div>
+        <div id="call-timer" class="call-timer n-timer"></div>
+        <div class="call-note">El audio de la conversación sigue en el móvil.</div>
+        <div class="call-actions">
+          <button id="call-hang" class="call-end">Colgar</button>
+          <button id="call-hide" class="outline">Ocultar</button>
+        </div>
+        <div id="call-msg" class="muted"></div>
+      </div>
+    </div>
   </main>
 
   <!-- Ventana de diálogo propia (los diálogos del navegador no son fiables en la app) -->
