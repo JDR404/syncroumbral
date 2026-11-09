@@ -59,10 +59,10 @@ Si la red está marcada como "Pública" en Windows, el móvil no podrá llegar: 
    - **Instalar por `adb`** (no pasa por ese filtro): con la depuración inalámbrica activa, `adb install -r SyncroUmbral-movil.apk`. Es lo más fiable.
    - Desactivar temporalmente en Play Store, tu perfil, Play Protect, Configuración, "Analizar apps con Play Protect" (y la protección contra fraude mejorada si aparece),
      instalar, y volver a activarla.
-   Hay dos APK: `SyncroUmbral-movil.apk` (estándar, con el mínimo de permisos) y `SyncroUmbral-movil-con-superposicion.apk` (añade "Mostrar sobre otras apps" para contestar
-   llamadas de WhatsApp desde segundo plano; junto al acceso a notificaciones es lo que más desconfianza despierta en Play Protect). Usa la estándar salvo que la necesites.
-   Se genera con `gradlew assembleRelease -PconOverlay=true`.
-4. Abre SyncroUmbral en el móvil y concede, en este orden:
+   Hay un solo APK: `SyncroUmbral-movil.apk`. Declara el permiso "Mostrar sobre otras apps", pero **viene apagado**: solo lo activas tú desde la app si quieres contestar
+   llamadas de WhatsApp desde el PC.
+4. Abre SyncroUmbral en el móvil. La pantalla principal tiene una lista de **Permisos** con el estado de cada uno ("Permitido" en verde o "Falta" en rojo, con su botón
+   "Permitir" solo en los que faltan) y un resumen ("5 de 6 concedidos"). Se actualiza sola al volver de los ajustes. Concede los que quieras usar, por ejemplo:
    - **Notificaciones** (para que el servicio no se mate en segundo plano).
    - **Permitir acceso a los archivos** (para el explorador de archivos).
    - **Permitir acceso a las notificaciones**: abre la lista de Android, activa "SyncroUmbral". Android 13 o superior bloquea este permiso en apps instaladas a mano: si aparece atenuado o con aviso de "ajuste restringido", ve a Ajustes, Aplicaciones, SyncroUmbral, menú de los tres puntos, "Permitir ajustes restringidos", y vuelve a intentarlo.
@@ -162,7 +162,8 @@ Inicias sesión una vez (en WhatsApp, escaneando el QR) y las siguientes veces e
   - **Permitir contestar llamadas**: para las llamadas normales (línea del operador). Se contestan y cuelgan con la API de telefonía de Android.
   - Para las llamadas de WhatsApp y similares, contestar abre la pantalla de la llamada y Android 10 o superior prohíbe que una app en segundo plano abra pantallas.
     Por eso **rechazar funcionaba y contestar no**: rechazar no abre nada. SyncroUmbral lo intenta y **comprueba si la llamada realmente se contestó**; si Android lo bloqueó,
-    lo dice. La variante con superposición añade **Mostrar sobre otras apps**, que Android sí exime de ese bloqueo.
+    lo dice. Con el permiso **Mostrar sobre otras apps** Android sí lo permite: comprobado en un Pixel con una llamada simulada (sin el permiso la llamada
+    se bloquea; con él se contesta desde segundo plano).
   SyncroUmbral muestra en Móviles y ajustes qué permiso falta. Son permisos sensibles: concédelos solo si vas a contestar desde el PC; se revocan en Ajustes del móvil.
   **El audio de la llamada sigue en el móvil**: no encontré una forma soportada de que una app de terceros haga de auricular Bluetooth en Windows
   (eso lo hace Phone Link de Microsoft con su propio componente), y Android no permite capturar el audio de las llamadas normales. Si quieres hablar

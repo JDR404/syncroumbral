@@ -47,11 +47,6 @@ android {
             signingConfig = signingConfigs.findByName("release")
         }
     }
-    // Variante opcional con el permiso "Mostrar sobre otras apps": gradlew assembleRelease -PconOverlay=true
-    if (project.hasProperty("conOverlay")) {
-        sourceSets.getByName("release").manifest.srcFile("src/overlay/AndroidManifest.xml")
-        sourceSets.getByName("debug").manifest.srcFile("src/overlay/AndroidManifest.xml")
-    }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17

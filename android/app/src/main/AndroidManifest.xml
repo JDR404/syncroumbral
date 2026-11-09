@@ -15,8 +15,10 @@
     <uses-permission android:name="android.permission.WAKE_LOCK" />
     <!-- Contestar y colgar llamadas normales desde el PC (TelecomManager). -->
     <uses-permission android:name="android.permission.ANSWER_PHONE_CALLS" />
-    <!-- "Mostrar sobre otras apps" (SYSTEM_ALERT_WINDOW) NO se pide aquí: está en la variante opcional src/overlay (ver docs). -->
-    <!-- Junto al acceso a notificaciones, Google Play Protect bloquea la instalación manual de la app. -->
+    <!-- Contestar llamadas de WhatsApp y similares: contestar abre la pantalla de la llamada y, sin este permiso, Android 10 o
+         superior lo bloquea desde segundo plano (comprobado en un Pixel). Es un permiso especial que viene apagado: lo concede
+         el usuario desde la lista de permisos de la app. Junto al acceso a notificaciones puede hacer desconfiar a Play Protect. -->
+    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
     <!-- KeepAlive (CPU y Wi-Fi despiertos con la pantalla apagada) solo necesita WAKE_LOCK, ya declarado arriba. -->
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="29" />
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="29" />

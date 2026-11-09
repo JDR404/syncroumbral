@@ -7,14 +7,17 @@ SyncroUmbral es parte del portafolio de **SyncroApp** (en pruebas). Cuenta de de
 Al abrir el APK desde el gestor de archivos, Google Play Protect puede mostrar *"Se bloqueó la app para proteger tu dispositivo. Esta app puede
 solicitar acceso a datos sensibles"*. No es un fallo del APK: es la protección de Android contra apps instaladas fuera de Play Store que piden
 permisos que se usan en fraudes (acceso a notificaciones, superposición, SMS, accesibilidad). SyncroUmbral **necesita** el acceso a notificaciones
-(es una de sus funciones) y el APK estándar ya evita los permisos más sospechosos:
+(es una de sus funciones). Permisos que declara el APK (hay un solo APK):
 
-| Permiso | Estándar | Con superposición |
+| Permiso | Para qué | Estado inicial |
 |---|---|---|
-| Acceso a notificaciones (servicio de escucha) | sí (imprescindible) | sí |
-| Contestar llamadas (`ANSWER_PHONE_CALLS`) | sí | sí |
-| Mostrar sobre otras apps (`SYSTEM_ALERT_WINDOW`) | **no** | sí |
-| Todos los archivos, lista de apps | sí | sí |
+| Acceso a notificaciones (servicio de escucha) | Mostrar y responder notificaciones en el PC | apagado, lo concede el usuario |
+| Contestar llamadas (`ANSWER_PHONE_CALLS`) | Contestar y colgar llamadas normales | apagado, lo concede el usuario |
+| Mostrar sobre otras apps (`SYSTEM_ALERT_WINDOW`) | Contestar llamadas de WhatsApp y similares desde segundo plano (comprobado: sin él Android lo bloquea) | apagado, lo concede el usuario |
+| Todos los archivos, lista de apps | Explorador de archivos y pestaña Aplicaciones | apagado, lo concede el usuario |
+
+Si más adelante se publica en Play, conviene reconsiderar los permisos más sensibles: la combinación de acceso a notificaciones y superposición es la
+que más desconfianza despierta en las revisiones.
 
 La instalación por `adb install -r` no pasa por ese filtro, y es la vía que usan las pruebas.
 
@@ -35,12 +38,6 @@ Lo siguiente es lo que se necesita; los detalles exactos cambian y deben confirm
    "app desconocida". Play revisará el uso de permisos sensibles (acceso a todos los archivos, lista de apps, notificaciones) y pedirá justificarlos.
 5. **Declaración de permisos y política de privacidad.** Listado de qué datos toca la app (notificaciones, archivos, lista de apps), que todo se procesa
    en el dispositivo y el PC del usuario y que no hay servidores ni telemetría (ver `AUDITORIA_SEGURIDAD.md`, sección de privacidad).
-
-## Variantes del APK
-
-- **SyncroUmbral-movil.apk**: estándar, mínimo de permisos. Recomendado.
-- **SyncroUmbral-movil-con-superposicion.apk**: añade "Mostrar sobre otras apps" para contestar llamadas de WhatsApp desde segundo plano. Se genera con
-  `gradlew assembleRelease -PconOverlay=true`. Es la más probable de ser bloqueada en instalación manual.
 
 ## Pendiente de decidir por SyncroApp
 

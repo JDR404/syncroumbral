@@ -87,10 +87,7 @@ object CallOps {
         // Enviar el botón no garantiza nada: si Android bloquea abrir la pantalla, no avisa. Se comprueba que la notificación
         // dejó de ofrecer "Contestar" (la llamada pasó a estar en curso o terminó).
         if (!waitAnswered(sbn.key)) {
-            throw IllegalStateException(
-                "Android no dejó abrir la llamada desde segundo plano. Contéstala en el móvil" +
-                    if (overlayAvailable(ctx)) "." else " o usa la variante de SyncroUmbral con \"Mostrar sobre otras apps\" (ver la guía)."
-            )
+            throw IllegalStateException("Android no dejó abrir la llamada desde segundo plano. Contéstala en el móvil.")
         }
         return JSONObject().put("via", "notificacion")
     }
