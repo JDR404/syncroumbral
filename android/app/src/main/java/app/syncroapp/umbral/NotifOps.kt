@@ -28,9 +28,15 @@ object NotifOps {
     fun toJson(ctx: Context, sbn: StatusBarNotification, ranking: NotificationListenerService.RankingMap?): JSONObject? {
         val n = sbn.notification
         // Las llamadas se muestran siempre (aunque Android las marque "en curso"): el PC debe poder contestarlas o rechazarlas.
-        val isCall = n.category == Notification.CATEGORY_CALL
+        // La app de teléfono del sistema a veces cambia la categoría al actualizar la notificación de la llamada: se reconoce
+        // también por ser un servicio en primer plano de esa app.
+        val isCall = n.category == Notification.CATEGORY_CALL ||
+            (CallOps.isCellularPkg(ctx, sbn.packageName) && n.flags and Notification.FLAG_FOREGROUND_SERVICE != 0 &&
+                !n.actions.isNullOrEmpty())
+        val isMedia = !isCall && (n.category == Notification.CATEGORY_TRANSPORT ||
+            n.extras.getString(Notification.EXTRA_TEMPLATE).orEmpty().contains("MediaStyle"))
         val ongoing = Notification.FLAG_ONGOING_EVENT or Notification.FLAG_FOREGROUND_SERVICE
-        if (!isCall && (n.flags and ongoing != 0 || n.flags and Notification.FLAG_GROUP_SUMMARY != 0)) return null
+        if (!isCall && !isMedia && (n.flags and ongoing != 0 || n.flags and Notification.FLAG_GROUP_SUMMARY != 0)) return null
 
         val e = n.extras
         val title = e.getCharSequence(Notification.EXTRA_TITLE)?.toString().orEmpty()
@@ -56,7 +62,7 @@ object NotifOps {
 
         val pm = ctx.packageManager
         val app = try { pm.getApplicationLabel(pm.getApplicationInfo(sbn.packageName, 0)).toString() } catch (_: Exception) { sbn.packageName }
-        return JSONObject()
+        val out = JSONObject()
             .put("key", sbn.key).put("pkg", sbn.packageName).put("app", app)
             .put("title", title).put("text", text)
             .put("sub", e.getCharSequence(Notification.EXTRA_SUB_TEXT)?.toString().orEmpty())
@@ -73,7 +79,31 @@ object NotifOps {
                         CallOps.hasAnswerAction(n)
                     )
             )
+            .put("media", isMedia)
+        if (isMedia) artwork(ctx, n)?.let { out.put("art", it) }
+        return out
     }
+
+    /** Carátula de la canción: miniatura JPEG de 96 px en base64 (unos pocos KB). Null si la notificación no trae imagen. */
+    private fun artwork(ctx: Context, n: Notification): String? = try {
+        val e = n.extras
+        val bmp: android.graphics.Bitmap? = (e.getParcelable<android.graphics.Bitmap>(Notification.EXTRA_PICTURE)
+            ?: n.getLargeIcon()?.loadDrawable(ctx)?.let { d ->
+                val w = d.intrinsicWidth.coerceAtLeast(1)
+                val h = d.intrinsicHeight.coerceAtLeast(1)
+                android.graphics.Bitmap.createBitmap(w, h, android.graphics.Bitmap.Config.ARGB_8888).also {
+                    val c = android.graphics.Canvas(it)
+                    d.setBounds(0, 0, w, h)
+                    d.draw(c)
+                }
+            })
+        bmp?.let {
+            val s = android.graphics.Bitmap.createScaledBitmap(it, 96, 96, true)
+            val bo = java.io.ByteArrayOutputStream()
+            s.compress(android.graphics.Bitmap.CompressFormat.JPEG, 75, bo)
+            android.util.Base64.encodeToString(bo.toByteArray(), android.util.Base64.NO_WRAP)
+        }
+    } catch (_: Exception) { null }
 
     private fun list(ctx: Context): JSONObject {
         val svc = NotifService.instance ?: return JSONObject().put("granted", false).put("items", JSONArray())

@@ -117,8 +117,46 @@
       root.append(row);
     }
 
+    const used = new Set();
+    if (n.media) {
+      // Reproductor: carátula, título y artista, y los controles de transporte como botones redondos con icono.
+      root.classList.add('media');
+      if (typeof n.art === 'string' && /^[A-Za-z0-9+/=]+$/.test(n.art)) {
+        const img = document.createElement('img');
+        img.className = 'n-art';
+        img.alt = '';
+        img.src = 'data:image/jpeg;base64,' + n.art;
+        root.append(img);
+      }
+      const GLYPH = [
+        [/anterior|previous|prev\b|atr[aá]s/i, '<path d="M7 6v12M18 6l-8 6 8 6z" fill="currentColor" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/>', 'transport'],
+        [/siguiente|next|adelante/i, '<path d="M17 6v12M6 6l8 6-8 6z" fill="currentColor" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/>', 'transport'],
+        [/pausa|pause/i, '<path d="M8 6v12M16 6v12" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"/>', 'main'],
+        [/reproducir|play|reanudar/i, '<path d="M8 5.5v13l11-6.5z" fill="currentColor" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/>', 'main'],
+        [/no me gusta|dislike|thumb.?down/i, '<path d="M7 11v9H4v-9zM7 11l4-7a2 2 0 0 1 2 2v3h5.5a1.5 1.5 0 0 1 1.5 1.7l-1 6.5a2 2 0 0 1-2 1.8H7" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" transform="translate(0 24) scale(1 -1)"/>', 'extra'],
+        [/me gusta|like|favorit|guardar|save/i, '<path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.5A4 4 0 0 1 19 10c0 5.6-7 10-7 10z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/>', 'extra'],
+      ];
+      const ctl = el('div', 'n-media-ctl');
+      for (const a of actions) {
+        if (a.reply || !a.title) continue;
+        const g = GLYPH.find(([re]) => re.test(a.title));
+        if (!g) continue;
+        used.add(a.index);
+        const b = el('button', 'mbtn ' + g[2]);
+        b.title = a.title;
+        b.setAttribute('aria-label', a.title);
+        b.innerHTML = '<svg class="ic" viewBox="0 0 24 24">' + g[1] + '</svg>'; // constante: el contenido del móvil no entra aquí
+        b.onclick = async () => {
+          try { await invoke('notif_action', { key: n.key, index: a.index }); } catch (e) { setStatus(String(e), true); }
+        };
+        ctl.append(b);
+      }
+      if (ctl.children.length) root.append(ctl);
+    }
+
+    // Los botones sin icono conocido se muestran con su nombre, como en el resto de notificaciones.
     const bar = el('div', 'n-actions');
-    for (const a of actions.filter((x) => !x.reply && x.title && !(n.call && (ANSWER.test(x.title) || END.test(x.title))))) {
+    for (const a of actions.filter((x) => !x.reply && x.title && !used.has(x.index) && !(n.call && (ANSWER.test(x.title) || END.test(x.title))))) {
       const b = el('button', 'small', a.title);
       b.onclick = async () => {
         try { await invoke('notif_action', { key: n.key, index: a.index }); setStatus('Hecho'); }

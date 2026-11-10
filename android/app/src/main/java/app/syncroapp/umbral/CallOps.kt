@@ -54,6 +54,8 @@ object CallOps {
     private fun telecom(ctx: Context) = ctx.getSystemService(Context.TELECOM_SERVICE) as TelecomManager
 
     /** ¿La notificación es de la app de teléfono del sistema (llamada normal) y no de una app de mensajería? */
+    fun isCellularPkg(ctx: Context, pkg: String) = isCellular(ctx, pkg)
+
     private fun isCellular(ctx: Context, pkg: String): Boolean {
         val dialer = try { telecom(ctx).defaultDialerPackage } catch (_: Exception) { null }
         return pkg == dialer || pkg == "com.android.server.telecom" || pkg == "com.android.phone" ||

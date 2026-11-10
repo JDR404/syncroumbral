@@ -429,7 +429,11 @@ impl Core {
             "notif_gone" => {
                 let key = v["key"].clone();
                 if self.notifs.lock().unwrap().iter().any(|x| x["key"] == key && x["incoming"] == true) {
-                    self.seclog("llamada entrante terminada (contestada, rechazada o colgada)");
+                    // `reason` es el motivo que da Android al retirar la notificación (1 pulsada, 2 descartada, 8 retirada por la app...).
+                    self.seclog(&format!(
+                        "llamada entrante terminada (contestada, rechazada o colgada), motivo Android {}",
+                        v["reason"].as_i64().map_or("?".to_string(), |r| r.to_string())
+                    ));
                 }
                 self.notifs.lock().unwrap().retain(|x| x["key"] != key);
                 let empty = {
