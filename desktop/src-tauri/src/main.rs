@@ -140,6 +140,7 @@ fn main() {
                 }
             }
             tools::init(&dir);
+            audio::init(&dir);
             let (cert, key) = load_or_create_cert(&dir)?;
             let fp = hex::encode(Sha256::digest(&cert));
             let tls = Arc::new(tls_config(cert, key)?);
@@ -220,6 +221,8 @@ fn main() {
             commands::call_perms,
             commands::get_mute_on_call,
             commands::set_mute_on_call,
+            commands::get_advanced,
+            commands::set_advanced,
             commands::notif_dismiss,
             commands::notif_clear_all,
             commands::notif_remove_local,

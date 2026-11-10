@@ -6,7 +6,22 @@
 //! terminar se restaura exactamente lo que se silenció aquí. No cambia el volumen general ni el de ninguna aplicación.
 
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::Arc;
+use std::sync::{Arc, OnceLock};
+
+/// Archivo donde se anotan las sesiones silenciadas aquí. Windows recuerda el silencio de cada programa aunque SyncroUmbral
+/// se cierre o se detenga a la fuerza en plena llamada, así que al arrancar se restaura lo que quedó anotado.
+static JOURNAL: OnceLock<std::path::PathBuf> = OnceLock::new();
+
+/// Se llama al arrancar con la carpeta de datos: restaura lo que una ejecución anterior dejó silenciado y, una sola vez tras
+/// actualizar desde versiones sin este registro, quita el silencio de todas las sesiones (el usuario las veía mudas).
+pub fn init(dir: &std::path::Path) {
+    let _ = JOURNAL.set(dir.join("audio-silenciadas.txt"));
+    #[cfg(windows)]
+    std::thread::spawn({
+        let marker = dir.join("audio-rescate-1");
+        move || imp::recover(!marker.exists(), &marker)
+    });
+}
 
 /// Mientras `active` sea true, mantiene silenciado el resto del PC; al volverse false restaura todo.
 pub fn duck_while(active: Arc<AtomicBool>) {
@@ -25,10 +40,95 @@ mod imp {
         eConsole, eRender, IAudioSessionControl2, IAudioSessionManager2, IMMDeviceEnumerator, ISimpleAudioVolume,
         MMDeviceEnumerator,
     };
-    use windows::Win32::System::Com::{CoCreateInstance, CoInitializeEx, CoUninitialize, CLSCTX_ALL, COINIT_MULTITHREADED};
+    use windows::Win32::System::Com::{
+        CoCreateInstance, CoInitializeEx, CoTaskMemFree, CoUninitialize, CLSCTX_ALL, COINIT_MULTITHREADED,
+    };
+
+    fn session_id(ctl2: &IAudioSessionControl2) -> Option<String> {
+        // SAFETY: la cadena la reserva COM y se libera aquí tras copiarla.
+        unsafe {
+            let p = ctl2.GetSessionInstanceIdentifier().ok()?;
+            let s = p.to_string().ok();
+            CoTaskMemFree(Some(p.0 as *const _));
+            s
+        }
+    }
+
+    fn journal_write(ids: &[String]) {
+        if let Some(p) = JOURNAL.get() {
+            if ids.is_empty() {
+                let _ = std::fs::remove_file(p);
+            } else {
+                let _ = std::fs::write(p, ids.join("\n"));
+            }
+        }
+    }
+
+    /// Quita el silencio de las sesiones anotadas (o de todas con `all`) en el dispositivo predeterminado.
+    pub fn unmute_listed(ids: &[String], all: bool) {
+        // SAFETY: llamadas COM sobre interfaces válidas dentro del hilo que inicializó COM.
+        unsafe {
+            let Ok(enumerator) = CoCreateInstance::<_, IMMDeviceEnumerator>(&MMDeviceEnumerator, None, CLSCTX_ALL) else { return };
+            let Ok(device) = enumerator.GetDefaultAudioEndpoint(eRender, eConsole) else { return };
+            let Ok(manager) = device.Activate::<IAudioSessionManager2>(CLSCTX_ALL, None) else { return };
+            let Ok(sessions) = manager.GetSessionEnumerator() else { return };
+            for i in 0..sessions.GetCount().unwrap_or(0) {
+                let Ok(ctl) = sessions.GetSession(i) else { continue };
+                let Ok(ctl2) = ctl.cast::<IAudioSessionControl2>() else { continue };
+                if ctl2.IsSystemSoundsSession().0 == 0 {
+                    continue;
+                }
+                let listed = session_id(&ctl2).map_or(false, |s| ids.contains(&s));
+                if all || listed {
+                    if let Ok(vol) = ctl.cast::<ISimpleAudioVolume>() {
+                        let _ = vol.SetMute(false, std::ptr::null());
+                    }
+                }
+            }
+        }
+    }
+
+    /// Al arrancar: restaura lo anotado por una ejecución anterior y, con `rescue`, todo lo que estuviera en silencio.
+    pub fn recover(rescue: bool, marker: &std::path::Path) {
+        let ids: Vec<String> = JOURNAL
+            .get()
+            .and_then(|p| std::fs::read_to_string(p).ok())
+            .map(|t| t.lines().map(String::from).collect())
+            .unwrap_or_default();
+        if ids.is_empty() && !rescue {
+            return;
+        }
+        // SAFETY: COM se inicializa y se libera en este hilo.
+        unsafe {
+            if CoInitializeEx(None, COINIT_MULTITHREADED).is_err() {
+                return;
+            }
+            unmute_listed(&ids, rescue);
+            CoUninitialize();
+        }
+        journal_write(&[]);
+        if rescue {
+            let _ = std::fs::write(marker, "1");
+        }
+    }
 
     /// Un recorrido: silencia las sesiones ajenas que suenan y las añade a `muted`. Devuelve cuántas silenció.
     pub fn mute_pass(me: u32, muted: &mut Vec<ISimpleAudioVolume>) -> windows::core::Result<usize> {
+        let mut ids = Vec::new();
+        let r = mute_pass_ids(me, muted, &mut ids);
+        if !ids.is_empty() {
+            let mut all: Vec<String> = JOURNAL
+                .get()
+                .and_then(|p| std::fs::read_to_string(p).ok())
+                .map(|t| t.lines().map(String::from).collect())
+                .unwrap_or_default();
+            all.extend(ids);
+            journal_write(&all);
+        }
+        r
+    }
+
+    fn mute_pass_ids(me: u32, muted: &mut Vec<ISimpleAudioVolume>, ids: &mut Vec<String>) -> windows::core::Result<usize> {
         // SAFETY: llamadas COM sobre interfaces válidas dentro del hilo que inicializó COM.
         unsafe {
             let enumerator: IMMDeviceEnumerator = CoCreateInstance(&MMDeviceEnumerator, None, CLSCTX_ALL)?;
@@ -50,6 +150,9 @@ mod imp {
                     continue; // ya estaba en silencio (por el usuario o por una pasada anterior)
                 }
                 vol.SetMute(true, std::ptr::null())?;
+                if let Some(id) = session_id(&ctl2) {
+                    ids.push(id);
+                }
                 muted.push(vol);
                 n += 1;
             }
@@ -79,6 +182,7 @@ mod imp {
                 std::thread::sleep(Duration::from_millis(400));
             }
             restore(&mut muted);
+            journal_write(&[]);
             CoUninitialize();
         }
     }

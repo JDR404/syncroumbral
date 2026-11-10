@@ -42,6 +42,16 @@ class Store(context: Context) {
         get() = prefs.getBoolean("keepAlive", true)
         set(v) = prefs.edit().putBoolean("keepAlive", v).apply()
 
+    /** Modo avanzado (adb/scrcpy en el PC). Se sincroniza con el PC en los dos sentidos. */
+    var advanced: Boolean
+        get() = prefs.getBoolean("advanced", true)
+        set(v) = prefs.edit().putBoolean("advanced", v).apply()
+
+    /** Servicios de accesibilidad cuyo aviso el usuario ya descartó (lista separada por comas). */
+    var dismissedA11y: String
+        get() = prefs.getString("dismissedA11y", "") ?: ""
+        set(v) = prefs.edit().putString("dismissedA11y", v).apply()
+
     val hasPc: Boolean get() = fingerprint.isNotEmpty() && hosts.isNotEmpty()
 
     /** Lo que trae el QR del PC, ya validado. Nada se guarda hasta que el usuario lo confirma. */

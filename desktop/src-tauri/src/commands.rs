@@ -378,6 +378,28 @@ pub fn set_mute_on_call(core: Shared, on: bool) -> Result<(), String> {
 }
 
 #[tauri::command]
+pub fn get_advanced(core: Shared) -> bool {
+    core.advanced()
+}
+
+/// Cambia entre modo básico y avanzado y se lo comunica al móvil (si está conectado).
+#[tauri::command]
+pub async fn set_advanced(core: Shared<'_>, on: bool) -> Result<(), String> {
+    ensure_unlocked(&core)?;
+    core.set_advanced(on);
+    let _ = core.call("set_mode", json!({ "advanced": on })).await;
+    Ok(())
+}
+
+fn ensure_advanced(core: &Core) -> Result<(), String> {
+    if core.advanced() {
+        Ok(())
+    } else {
+        Err("El modo avanzado está desactivado. Actívalo en Móviles y ajustes (o en la app del móvil) para usar esto.".into())
+    }
+}
+
+#[tauri::command]
 pub fn notif_mute(h: AppHandle, core: Shared, pkg: String, app: String) -> Result<(), String> {
     ensure_unlocked(&core)?;
     core.mute_app(&h, &pkg, &app);
@@ -453,6 +475,7 @@ pub async fn apps_icons(core: Shared<'_>, pkgs: Vec<String>) -> Result<Value, St
 #[tauri::command]
 pub async fn adb_status(core: Shared<'_>) -> Result<String, String> {
     ensure_unlocked(&core)?;
+    ensure_advanced(&core)?;
     let ip = core.phone_ip();
     tauri::async_runtime::spawn_blocking(move || adb::find_device(ip.as_deref()))
         .await
@@ -463,6 +486,7 @@ pub async fn adb_status(core: Shared<'_>) -> Result<String, String> {
 #[tauri::command]
 pub async fn app_open_pc(core: Shared<'_>, pkg: String, label: String) -> Result<String, String> {
     ensure_unlocked(&core)?;
+    ensure_advanced(&core)?;
     if !adb::valid_pkg(&pkg) {
         return Err("Nombre de paquete no válido".into());
     }
@@ -486,6 +510,7 @@ pub fn app_windows(core: Shared) -> Result<Vec<String>, String> {
 #[tauri::command]
 pub async fn app_action(core: Shared<'_>, pkg: String, action: String, local_dir: Option<String>) -> Result<String, String> {
     ensure_unlocked(&core)?;
+    ensure_advanced(&core)?;
     if !adb::valid_pkg(&pkg) {
         return Err("Nombre de paquete no válido".into());
     }

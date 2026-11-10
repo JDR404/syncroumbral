@@ -816,22 +816,40 @@ $('pair-btn').onclick = async () => {
   } catch (e) { alertMsg(String(e)); }
 };
 
-// Modo actual: completo si adb ve el móvil; si no, básico (todo lo demás sigue funcionando).
+// Modo de uso: el usuario lo elige (aquí o en la app del móvil; se sincronizan). Avanzado = usa adb/scrcpy si están listos.
 async function loadMode() {
-  let full = false;
-  try { await invoke('adb_status'); full = true; } catch { /* sin adb: básico */ }
-  $('mode-basic').classList.toggle('active', !full);
-  $('mode-full').classList.toggle('active', full);
-  $('mode-now').textContent = full
-    ? 'Modo completo: la depuración está activa. Desactívala en el móvil cuando termines.'
-    : 'Modo básico: todo funciona sin depuración. Para abrir apps del móvil en el PC usa el modo completo.';
+  let advanced = true;
+  try { advanced = await invoke('get_advanced'); } catch { /* por defecto */ }
+  let ready = false;
+  if (advanced) { try { await invoke('adb_status'); ready = true; } catch { /* sin adb o sin depuración */ } }
+  $('mode-basic').classList.toggle('active', !advanced);
+  $('mode-full').classList.toggle('active', advanced);
+  $('mode-now').textContent = !advanced
+    ? 'Modo básico: todo funciona sin depuración. Las acciones que usan adb (abrir apps del móvil en el PC, detener, desinstalar) están apagadas.'
+    : ready
+      ? 'Modo avanzado: la depuración está activa. Desactívala en el móvil cuando termines.'
+      : 'Modo avanzado activado, pero falta preparar adb y la depuración inalámbrica (tarjetas Herramientas y siguiente). Mientras tanto funciona como el básico.';
 }
-// El modo lo determina si adb ve el móvil; los botones solo explican cómo cambiar.
-$('mode-basic').onclick = () => { $('mode-now').textContent = 'Para volver al modo básico, desactiva la Depuración inalámbrica en las Opciones de desarrollador del móvil.'; };
-$('mode-full').onclick = () => {
-  $('mode-now').textContent = 'Para el modo completo: instala adb y scrcpy (tarjeta Herramientas) y empareja la depuración inalámbrica (tarjeta siguiente).';
-  $('card-wireless').scrollIntoView({ behavior: 'smooth', block: 'center' });
-};
+async function chooseMode(advanced) {
+  try { await invoke('set_advanced', { on: advanced }); } catch (e) { alertMsg(String(e)); }
+  await loadMode();
+  if (advanced) $('card-wireless')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+$('mode-basic').onclick = () => chooseMode(false);
+$('mode-full').onclick = () => chooseMode(true);
+// Si el usuario cambia el modo en el móvil, el PC se actualiza solo.
+listen('mode', () => loadMode());
+
+// Panel lateral plegable (se recuerda entre sesiones).
+function setSide(collapsed) {
+  document.querySelector('.side').classList.toggle('collapsed', collapsed);
+  const b = $('side-toggle');
+  b.title = b.ariaLabel = collapsed ? 'Mostrar el panel lateral' : 'Ocultar el panel lateral';
+  try { localStorage.setItem('side-collapsed', collapsed ? '1' : '0'); } catch { /* sin almacenamiento */ }
+  setTimeout(placeWeb, 60);
+}
+$('side-toggle').onclick = () => setSide(!document.querySelector('.side').classList.contains('collapsed'));
+try { if (localStorage.getItem('side-collapsed') === '1') setSide(true); } catch { /* sin almacenamiento */ }
 
 // Herramientas externas (adb, scrcpy): estado e instalación.
 async function loadTools() {

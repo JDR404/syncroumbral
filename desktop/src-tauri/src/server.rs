@@ -169,6 +169,19 @@ async fn session<R: Runtime>(
             if let Ok(r) = c.call("notifs", json!({})).await {
                 c.set_notifs(&hh, &r);
             }
+            // El PC le dice al móvil en qué modo está (el que se cambie después viaja en cualquiera de los dos sentidos).
+            let _ = c.call("set_mode", json!({ "advanced": c.advanced() })).await;
+            // Mientras haya móvil, cada 10 s se compara con lo que realmente tiene: si se quitó una notificación en el móvil
+            // (o se perdió un aviso), el PC se corrige solo.
+            loop {
+                tokio::time::sleep(Duration::from_secs(10)).await;
+                if c.phone_session() != Some(sid) {
+                    break; // esta sesión terminó (otra posterior lleva su propia sincronización)
+                }
+                if let Ok(r) = c.call("notifs", json!({})).await {
+                    c.resync_notifs(&hh, &r);
+                }
+            }
         });
     }
     let on_msg = |kind: &str, v: &Value| core.on_phone_event(h, kind, v);
@@ -257,7 +270,7 @@ async fn session_loop(
                             }
                         }
                         Some(
-                            kind @ ("notif" | "notif_gone" | "status" | "share_text" | "share_begin" | "share_chunk"
+                            kind @ ("notif" | "notif_gone" | "status" | "mode" | "lock_pc" | "share_text" | "share_begin" | "share_chunk"
                             | "share_end"),
                         ) => on_msg(kind, &v),
                         _ => {}

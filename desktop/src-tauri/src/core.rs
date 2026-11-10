@@ -139,6 +139,8 @@ pub struct Core {
     pub limits: crate::limits::Limiter,
     /// Silenciar el resto de sonidos del PC mientras suena una llamada (ajuste del usuario, activado por defecto).
     mute_on_call: AtomicBool,
+    /// Modo avanzado (usa adb y scrcpy: abrir apps del móvil en el PC, detenerlas, desinstalarlas). Apagado = modo básico.
+    advanced: AtomicBool,
     inner: Mutex<Inner>,
     /// Aquí viven los datos sensibles (listados, miniaturas…). Solo en RAM; se vacía al bloquear.
     pub volatile: Mutex<HashMap<String, Vec<u8>>>,
@@ -166,12 +168,15 @@ impl Core {
             Some(s) if s != TAMPERED => serde_json::from_str(&s).unwrap_or_default(),
             _ => Default::default(),
         };
-        let mute_on_call = match read("settings.json") {
-            Some(s) if s != TAMPERED => serde_json::from_str::<Value>(&s).ok().and_then(|v| v["mute_on_call"].as_bool()).unwrap_or(true),
-            _ => true,
+        let settings: Value = match read("settings.json") {
+            Some(s) if s != TAMPERED => serde_json::from_str::<Value>(&s).unwrap_or(Value::Null),
+            _ => Value::Null,
         };
+        let mute_on_call = settings["mute_on_call"].as_bool().unwrap_or(true);
+        let advanced = settings["advanced"].as_bool().unwrap_or(true);
         Core {
             mute_on_call: AtomicBool::new(mute_on_call),
+            advanced: AtomicBool::new(advanced),
             vault,
             dir,
             tls_fp,
@@ -426,6 +431,19 @@ impl Core {
                 let _ = h.emit("state", self.snapshot());
             }
             k if k.starts_with("share_") => crate::share::handle(self, h, k, v),
+            // Botón "Bloquear PC ahora" de la app del móvil.
+            "lock_pc" => {
+                self.seclog("bloqueo pedido desde el móvil");
+                self.lock_now();
+                self.notify(h);
+            }
+            // El usuario cambió el modo (básico/avanzado) en el móvil.
+            "mode" => {
+                if let Some(on) = v["advanced"].as_bool() {
+                    self.set_advanced(on);
+                    let _ = h.emit("mode", serde_json::json!({ "advanced": on }));
+                }
+            }
             "notif_gone" => {
                 let key = v["key"].clone();
                 if self.notifs.lock().unwrap().iter().any(|x| x["key"] == key && x["incoming"] == true) {
@@ -458,13 +476,16 @@ impl Core {
         }
         *self.notif_granted.lock().unwrap() = r["granted"].as_bool();
         let muted = self.muted.lock().unwrap().clone();
-        *self.notifs.lock().unwrap() = r["items"]
+        let local: Vec<Value> = self.notifs.lock().unwrap().iter().filter(|n| n["pkg"] == "umbral.share").cloned().collect();
+        let mut all: Vec<Value> = r["items"]
             .as_array()
             .cloned()
             .unwrap_or_default()
             .into_iter()
             .filter(|n| n["pkg"].as_str().map_or(true, |p| !muted.contains_key(p)))
             .collect();
+        all.extend(local);
+        *self.notifs.lock().unwrap() = all;
         let _ = h.emit("notif_sync", self.notifs_state());
         // Una llamada que sigue sonando al (re)conectar el móvil hay que mostrarla y hacerla sonar: si el móvil parpadeó mientras
         // sonaba, la ventana y el timbre se habían cerrado y la lista inicial no los reabre.
@@ -472,6 +493,59 @@ impl Core {
         for n in ringing {
             self.push_notif(h, &n);
         }
+    }
+
+    /// Sincronización periódica con el móvil: lo que el usuario quitó en el móvil desaparece del PC y lo que falta aparece.
+    /// Conserva lo generado en el PC (lo compartido desde el móvil) y no abre ventanas emergentes, salvo para una llamada
+    /// entrante que el PC no conocía.
+    pub fn resync_notifs<R: Runtime>(&self, h: &AppHandle<R>, r: &Value) {
+        if self.is_locked() || r["items"].as_array().is_none() {
+            return;
+        }
+        let muted = self.muted.lock().unwrap().clone();
+        let fresh: Vec<Value> = r["items"]
+            .as_array()
+            .cloned()
+            .unwrap_or_default()
+            .into_iter()
+            .filter(|n| n["pkg"].as_str().map_or(true, |p| !muted.contains_key(p)))
+            .collect();
+        let (known, local): (Vec<String>, Vec<Value>) = {
+            let cur = self.notifs.lock().unwrap();
+            (
+                cur.iter().filter_map(|n| n["key"].as_str().map(String::from)).collect(),
+                cur.iter().filter(|n| n["pkg"] == "umbral.share").cloned().collect(),
+            )
+        };
+        let same = {
+            let cur = self.notifs.lock().unwrap();
+            let keys = |v: &Vec<Value>| -> Vec<String> {
+                let mut k: Vec<String> = v.iter().filter_map(|n| n["key"].as_str().map(String::from)).collect();
+                k.sort();
+                k
+            };
+            keys(&cur.iter().filter(|n| n["pkg"] != "umbral.share").cloned().collect()) == keys(&fresh)
+        };
+        if same {
+            return;
+        }
+        let mut all = fresh.clone();
+        all.extend(local);
+        *self.notifs.lock().unwrap() = all;
+        {
+            let live: Vec<&str> = fresh.iter().filter_map(|n| n["key"].as_str()).collect();
+            let mut p = self.popups.lock().unwrap();
+            p.retain(|x| x["pkg"] == "umbral.share" || x["key"].as_str().map_or(false, |k| live.contains(&k)));
+            if p.is_empty() {
+                drop(p);
+                crate::toast::hide(h);
+            }
+        }
+        let _ = h.emit("notif_sync", self.notifs_state());
+        for n in fresh.iter().filter(|n| n["incoming"] == true && !known.iter().any(|k| Some(k.as_str()) == n["key"].as_str())) {
+            self.push_notif(h, n);
+        }
+        self.stop_ring_if_no_incoming_call();
     }
 
     // ---------- ajustes ----------
@@ -482,7 +556,21 @@ impl Core {
 
     pub fn set_mute_on_call(&self, on: bool) {
         self.mute_on_call.store(on, Ordering::SeqCst);
-        self.vault.seal_write(&self.dir.join("settings.json"), &serde_json::json!({ "mute_on_call": on }).to_string());
+        self.save_settings();
+    }
+
+    pub fn advanced(&self) -> bool {
+        self.advanced.load(Ordering::SeqCst)
+    }
+
+    pub fn set_advanced(&self, on: bool) {
+        self.advanced.store(on, Ordering::SeqCst);
+        self.save_settings();
+    }
+
+    fn save_settings(&self) {
+        let v = serde_json::json!({ "mute_on_call": self.mute_on_call(), "advanced": self.advanced() });
+        self.vault.seal_write(&self.dir.join("settings.json"), &v.to_string());
     }
 
     // ---------- apps silenciadas ----------
@@ -550,6 +638,11 @@ impl Core {
             *g = None;
             *self.phone_ip.lock().unwrap() = None;
         }
+    }
+
+    /// Sesión del móvil conectado ahora (None si no hay).
+    pub fn phone_session(&self) -> Option<u64> {
+        self.phone_tx.lock().unwrap().as_ref().map(|(s, _)| *s)
     }
 
     pub fn phone_ip(&self) -> Option<String> {

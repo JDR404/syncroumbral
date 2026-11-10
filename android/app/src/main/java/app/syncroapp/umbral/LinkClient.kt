@@ -190,6 +190,7 @@ class LinkClient(private val ctx: Context) {
                 op.startsWith("call_") -> CallOps.handle(ctx, op, req)
                 op.startsWith("clip_") -> ClipOps.handle(ctx, op, req)
                 op == "keep_awake" -> PowerOps.handle(ctx, op, req)
+                op == "set_mode" -> { Store(ctx).advanced = req.getBoolean("advanced"); JSONObject() }
                 else -> FileOps.handle(ctx, op, req)
             }
             res.put("ok", true).put("data", data)

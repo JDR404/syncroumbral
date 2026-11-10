@@ -46,6 +46,13 @@ class LinkService : Service() {
             .setSmallIcon(R.drawable.ic_stat_syncro)
             .setContentTitle("SyncroUmbral")
             .setContentText(Status.text)
+            // Al tocar el aviso se abre la app (antes había que buscarla).
+            .setContentIntent(
+                android.app.PendingIntent.getActivity(
+                    this, 0, Intent(this, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP),
+                    android.app.PendingIntent.FLAG_IMMUTABLE or android.app.PendingIntent.FLAG_UPDATE_CURRENT
+                )
+            )
             .setOngoing(true)
             .setSilent(true)
             .build()
