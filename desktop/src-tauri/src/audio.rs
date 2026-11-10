@@ -18,7 +18,7 @@ pub fn init(dir: &std::path::Path) {
     let _ = JOURNAL.set(dir.join("audio-silenciadas.txt"));
     #[cfg(windows)]
     std::thread::spawn({
-        let marker = dir.join("audio-rescate-1");
+        let marker = dir.join("audio-rescate-2");
         move || imp::recover(!marker.exists(), &marker)
     });
 }
@@ -69,19 +69,24 @@ mod imp {
         // SAFETY: llamadas COM sobre interfaces válidas dentro del hilo que inicializó COM.
         unsafe {
             let Ok(enumerator) = CoCreateInstance::<_, IMMDeviceEnumerator>(&MMDeviceEnumerator, None, CLSCTX_ALL) else { return };
-            let Ok(device) = enumerator.GetDefaultAudioEndpoint(eRender, eConsole) else { return };
-            let Ok(manager) = device.Activate::<IAudioSessionManager2>(CLSCTX_ALL, None) else { return };
-            let Ok(sessions) = manager.GetSessionEnumerator() else { return };
-            for i in 0..sessions.GetCount().unwrap_or(0) {
-                let Ok(ctl) = sessions.GetSession(i) else { continue };
-                let Ok(ctl2) = ctl.cast::<IAudioSessionControl2>() else { continue };
-                if ctl2.IsSystemSoundsSession().0 == 0 {
-                    continue;
-                }
-                let listed = session_id(&ctl2).map_or(false, |s| ids.contains(&s));
-                if all || listed {
-                    if let Ok(vol) = ctl.cast::<ISimpleAudioVolume>() {
-                        let _ = vol.SetMute(false, std::ptr::null());
+            // Todos los dispositivos de salida activos (altavoces, auriculares, controladores virtuales como FxSound): el
+            // predeterminado pudo ser otro cuando se silenció la sesión.
+            let Ok(devices) = enumerator.EnumAudioEndpoints(eRender, windows::Win32::Media::Audio::DEVICE_STATE_ACTIVE) else { return };
+            for d in 0..devices.GetCount().unwrap_or(0) {
+                let Ok(device) = devices.Item(d) else { continue };
+                let Ok(manager) = device.Activate::<IAudioSessionManager2>(CLSCTX_ALL, None) else { continue };
+                let Ok(sessions) = manager.GetSessionEnumerator() else { continue };
+                for i in 0..sessions.GetCount().unwrap_or(0) {
+                    let Ok(ctl) = sessions.GetSession(i) else { continue };
+                    let Ok(ctl2) = ctl.cast::<IAudioSessionControl2>() else { continue };
+                    if ctl2.IsSystemSoundsSession().0 == 0 {
+                        continue;
+                    }
+                    let listed = session_id(&ctl2).map_or(false, |s| ids.contains(&s));
+                    if all || listed {
+                        if let Ok(vol) = ctl.cast::<ISimpleAudioVolume>() {
+                            let _ = vol.SetMute(false, std::ptr::null());
+                        }
                     }
                 }
             }
@@ -145,6 +150,12 @@ mod imp {
                 if ctl2.GetProcessId().unwrap_or(0) == me {
                     continue; // el timbre es de SyncroUmbral
                 }
+                // Solo lo que está sonando ahora: las sesiones inactivas (programas abiertos sin reproducir) no se tocan, así no
+                // queda nada silenciado por error si algo falla. Lo que empiece a sonar durante la llamada lo recoge la
+                // siguiente pasada (cada 400 ms).
+                if ctl.GetState()?.0 != 1 {
+                    continue;
+                }
                 let vol: ISimpleAudioVolume = ctl.cast()?;
                 if vol.GetMute()?.as_bool() {
                     continue; // ya estaba en silencio (por el usuario o por una pasada anterior)
@@ -190,6 +201,37 @@ mod imp {
     #[cfg(test)]
     mod tests {
         use super::*;
+
+        /// Diagnóstico (cargo test dump_sessions -- --ignored --nocapture): todas las sesiones de todos los dispositivos de salida.
+        #[test]
+        #[ignore]
+        fn dump_sessions() {
+            use windows::Win32::Media::Audio::DEVICE_STATE_ACTIVE;
+            unsafe {
+                let _ = CoInitializeEx(None, COINIT_MULTITHREADED);
+                let en: IMMDeviceEnumerator = CoCreateInstance(&MMDeviceEnumerator, None, CLSCTX_ALL).unwrap();
+                let devs = en.EnumAudioEndpoints(eRender, DEVICE_STATE_ACTIVE).unwrap();
+                for d in 0..devs.GetCount().unwrap() {
+                    let dev = devs.Item(d).unwrap();
+                    println!("DISPOSITIVO {}", dev.GetId().unwrap().to_string().unwrap());
+                    let Ok(m) = dev.Activate::<IAudioSessionManager2>(CLSCTX_ALL, None) else { continue };
+                    let ss = m.GetSessionEnumerator().unwrap();
+                    for i in 0..ss.GetCount().unwrap() {
+                        let c = ss.GetSession(i).unwrap();
+                        let c2: IAudioSessionControl2 = c.cast().unwrap();
+                        let v: ISimpleAudioVolume = c.cast().unwrap();
+                        println!(
+                            "  pid={} sistema={} estado={:?} mute={} vol={:.2}",
+                            c2.GetProcessId().unwrap_or(0),
+                            c2.IsSystemSoundsSession().0 == 0,
+                            c.GetState().ok(),
+                            v.GetMute().unwrap().as_bool(),
+                            v.GetMasterVolume().unwrap()
+                        );
+                    }
+                }
+            }
+        }
 
         /// Con un dispositivo de audio: tras una pasada todo lo ajeno que sonaba queda en silencio y se restaura al terminar.
         #[test]

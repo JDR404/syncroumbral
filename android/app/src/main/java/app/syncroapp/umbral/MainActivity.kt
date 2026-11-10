@@ -261,7 +261,7 @@ class MainActivity : Activity() {
         quickCard.addView(text("Acciones rápidas", 17f, TEXT, true).apply { setPadding(0, 0, 0, dp(8)) })
         quickCard.addView(pill("Enviar archivo al PC") { pickFiles() }, lp(bottom = 8))
         quickCard.addView(pill("Enviar portapapeles al PC", filled = false) { sendClipboard() }, lp(bottom = 8))
-        quickCard.addView(pill("Bloquear el PC ahora", filled = false, color = BAD) { lockPc() })
+        quickCard.addView(pill("Bloquear SyncroUmbral en el PC", filled = false, color = BAD) { lockPc() })
         c.addView(quickCard)
         return c
     }
@@ -435,8 +435,9 @@ class MainActivity : Activity() {
         val what = card()
         what.addView(text("Qué es SyncroUmbral", 17f, TEXT, true))
         what.addView(text(
-            "Este móvil es la llave de tu PC con Windows: mientras esté en tu red, el PC se mantiene desbloqueado; si te alejas, " +
-                "se bloquea y solo abre con la clave de respaldo. Además muestra aquí tus notificaciones en el PC (con respuesta), " +
+            "Este móvil es la llave de la aplicación SyncroUmbral del PC (no de Windows): mientras esté en tu red, la aplicación " +
+                "se mantiene abierta; si te alejas, se bloquea y solo abre con la clave de respaldo. No bloquea la sesión de Windows. " +
+                "Además muestra aquí tus notificaciones en el PC (con respuesta), " +
                 "contesta llamadas, comparte archivos y portapapeles y te deja ver los archivos del móvil desde el PC.",
             13f, MUTED
         ).apply { setPadding(0, dp(4), 0, 0) })
@@ -523,8 +524,8 @@ class MainActivity : Activity() {
     private fun lockPc() {
         if (Link.ws == null) { toast("Sin conexión con el PC"); return }
         AlertDialog.Builder(this)
-            .setTitle("Bloquear el PC")
-            .setMessage("El PC se bloquea y solo abre con la clave de respaldo.")
+            .setTitle("Bloquear SyncroUmbral")
+            .setMessage("La aplicación SyncroUmbral del PC se bloquea y solo abre con la clave de respaldo. No bloquea Windows.")
             .setPositiveButton("Bloquear") { _, _ ->
                 toast(if (Link.send(JSONObject().put("t", "lock_pc"))) "Bloqueo enviado al PC" else "Sin conexión con el PC")
             }
@@ -573,7 +574,7 @@ class MainActivity : Activity() {
         // Conectado ya lo dice el título; el subtítulo solo aporta cuando algo falta o está en curso.
         connSub.text = when {
             !store.hasPc -> "Escanea el QR del PC para empezar."
-            connected -> "El PC se desbloquea mientras el móvil esté en la red."
+            connected -> "SyncroUmbral en el PC se mantiene abierta mientras el móvil esté en la red."
             else -> "${Status.text}${if (store.paired) "" else "  ·  pendiente de confirmar"}"
         }
         pairCard.visibility = if (store.hasPc) View.GONE else View.VISIBLE
