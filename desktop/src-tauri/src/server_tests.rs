@@ -688,6 +688,45 @@ async fn incoming_call_rings_until_answered_and_never_hides_itself() {
     assert!(!h.core.is_ringing(), "colgada: deja de sonar");
 }
 
+/// Caso real: el móvil parpadea (se corta y se reconecta) mientras una llamada sigue sonando. Al cortarse se cierran la ventana
+/// y el timbre; al reconectar, la lista inicial trae la llamada todavía sonando y tiene que volver a mostrarse y sonar.
+#[tokio::test]
+async fn a_call_still_ringing_is_shown_again_when_the_phone_reconnects() {
+    let h = harness_with(Duration::from_secs(10), true).await;
+    let key = SigningKey::random(&mut rand::rngs::OsRng);
+    pair_device(&h, &key).await;
+    let call = json!({"key": "call1", "pkg": "com.google.android.dialer", "app": "Teléfono", "title": "Mio 2",
+        "text": "Llamada entrante", "when": 1, "quiet": false, "call": true, "incoming": true, "clearable": false,
+        "actions": [{"index": 0, "title": "Contestar", "reply": false}]});
+
+    // Primera conexión: la lista inicial ya trae la llamada sonando.
+    let mut ws = connect(h.port, &h.fp).await.unwrap();
+    assert_eq!(login(&mut ws, &key).await["t"], "ok");
+    let req = hear(&mut ws).await;
+    say(&mut ws, json!({"t": "res", "id": req["id"], "ok": true, "data": {"granted": true, "items": [call.clone()]}})).await;
+    settle().await;
+    assert!(h.core.is_ringing(), "una llamada que ya sonaba al conectar debe sonar");
+    assert_eq!(h.core.popup_items().len(), 1, "y abrir la ventana emergente");
+
+    // El móvil se corta: se limpia todo, incluido el timbre.
+    drop(ws);
+    settle().await;
+    assert!(!h.core.is_ringing());
+    assert_eq!(h.core.popup_items().len(), 0);
+
+    // Reconecta y la llamada sigue sonando: vuelve a aparecer y a sonar.
+    let mut ws = connect(h.port, &h.fp).await.unwrap();
+    assert_eq!(login(&mut ws, &key).await["t"], "ok");
+    let req = hear(&mut ws).await;
+    say(&mut ws, json!({"t": "res", "id": req["id"], "ok": true, "data": {"granted": true, "items": [call]}})).await;
+    settle().await;
+    assert!(h.core.is_ringing(), "tras reconectar, la llamada que sigue sonando vuelve a sonar");
+    assert_eq!(h.core.popup_items().len(), 1, "y vuelve a mostrarse");
+    let log = std::fs::read_to_string(h.core.dir.join("security.log")).unwrap();
+    assert!(log.contains("sesión del móvil iniciada") && log.contains("sesión del móvil terminada"), "{log}");
+    assert!(!log.contains("Mio 2"), "el nombre de quien llama no se escribe en el registro");
+}
+
 #[tokio::test]
 async fn shared_items_can_be_removed_individually_and_all_at_once() {
     let h = harness(Duration::from_secs(10)).await;

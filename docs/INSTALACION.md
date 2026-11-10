@@ -140,7 +140,9 @@ Inicias sesión una vez (en WhatsApp, escaneando el QR) y las siguientes veces e
 - **Bandeja del sistema.** Al cerrar la ventana SyncroUmbral sigue en la bandeja (icono junto al reloj) con solo unos 5 MB de memoria, para que las
   notificaciones sigan llegando. La ventana se abre al pulsar el icono, o al volver a abrir SyncroUmbral desde el menú Inicio (nunca corren dos copias).
   Para salir del todo: clic derecho en el icono, "Salir".
-- **Iniciar con Windows.** En Móviles y ajustes, tarjeta Funcionamiento: SyncroUmbral arranca en segundo plano al iniciar sesión.
+- **Iniciar con Windows.** SyncroUmbral **se activa solo la primera vez que se abre en el equipo** (es un agente que debe estar siempre; sin él el PC no se
+  desbloquea con el móvil ni llegan notificaciones hasta abrirlo a mano). Arranca en segundo plano al iniciar sesión. Se desactiva en Móviles y ajustes,
+  tarjeta Funcionamiento, y no se vuelve a activar solo. Abrirlo varias veces no crea copias: muestra la ventana de la que ya corre.
 - **Compartir desde el móvil.** En cualquier app del móvil usa Compartir y elige **SyncroUmbral (PC)**: el texto aparece en el PC con un botón Copiar
   y los archivos se guardan en `Descargas\SyncroUmbral` (se verifica que lleguen completos). Solo funciona con la aplicación desbloqueada.
 - **Arrastrar y soltar.** En la pestaña Archivos, arrastra archivos o carpetas desde el Explorador de Windows al panel del móvil.
@@ -194,7 +196,9 @@ Inicias sesión una vez (en WhatsApp, escaneando el QR) y las siguientes veces e
 - **PC:** `%APPDATA%\app.syncroapp.umbral` contiene:
   - `key.dpapi` y `vault.bin`: la clave privada del certificado y la llave de sellado, **cifradas con DPAPI de Windows** (solo tu usuario en este equipo las descifra).
   - `devices.json`, `password.phc` y `muted.json` con su sello (`.sig`): si alguien los edita a mano, SyncroUmbral los ignora, no autoriza ningún móvil, no deja abrir con otra clave y lo anota en `security.log`.
-  - `security.log`: vinculaciones, desvinculaciones, firmas inválidas, claves incorrectas, desbloqueos y manipulaciones (con rotación a 256 KB). No contiene secretos.
+  - `security.log`: vinculaciones, desvinculaciones, firmas inválidas, claves incorrectas, desbloqueos y manipulaciones, y también cada **inicio y fin de la sesión
+    del móvil (con su duración)** y las llamadas entrantes detectadas o terminadas (solo la app de origen, nunca el nombre de quien llama), útil para ver si el móvil
+    se está cayendo. Rotación a 256 KB. No contiene secretos.
   - `cert.der` (certificado público), las sesiones de Mensajería web (carpeta `web`) y las herramientas descargadas (carpeta `tools`).
   Las listas de archivos y de apps solo viven en memoria y se borran al bloquear. Las descargas se guardan donde tú elijas.
   Los archivos que llegan del móvil llevan la marca de origen de Windows (SmartScreen avisa al abrirlos); los ejecutables y accesos directos recibidos con Compartir

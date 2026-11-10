@@ -53,6 +53,8 @@ struct Inner {
     /// El móvil avisa de que Android puede cortar la conexión (ahorro de batería o SyncroUmbral optimizado).
     saver: bool,
     optimized: bool,
+    /// Cuándo empezó la sesión actual del móvil (para registrar cuánto duró).
+    session_start: Option<Instant>,
 }
 
 /// Comparación en tiempo constante.
@@ -204,6 +206,7 @@ impl Core {
                 charging: false,
                 saver: false,
                 optimized: false,
+                session_start: None,
             }),
             volatile: Mutex::new(HashMap::new()),
         }
@@ -286,19 +289,24 @@ impl Core {
             // aunque antes se hubiera abierto con clave.
             i.manual = false;
             i.device_name = Some(device_name);
+            i.session_start = Some(Instant::now());
             sid
         };
+        // Se deja constancia de cada conexión y desconexión: sirve para ver si el móvil se está cayendo y cada cuánto.
+        self.seclog("sesión del móvil iniciada");
         self.notify(h);
         sid
     }
 
     pub fn end_session<R: Runtime>(&self, h: &AppHandle<R>, sid: u64) {
+        let secs;
         {
             let mut i = self.inner.lock().unwrap();
             // Si el móvil ya se reconectó con otra sesión, esta no cuenta.
             if i.active_session != Some(sid) {
                 return;
             }
+            secs = i.session_start.take().map_or(0, |t| t.elapsed().as_secs());
             i.active_session = None;
             i.present = false;
             i.device_name = None;
@@ -307,6 +315,7 @@ impl Core {
             i.saver = false;
             i.optimized = false;
         }
+        self.seclog(&format!("sesión del móvil terminada tras {secs} s"));
         crate::share::abort_all(self); // archivos recibidos a medias
         self.clear_notifs(h); // sin móvil no hay notificaciones que mostrar
         self.notify(h);
@@ -330,6 +339,11 @@ impl Core {
     pub fn push_notif<R: Runtime>(&self, h: &AppHandle<R>, v: &Value) {
         if v["key"].as_str().is_none() {
             return;
+        }
+        // Constancia de llamadas entrantes (solo la aplicación de origen, nunca el nombre de quien llama).
+        let already = self.notifs.lock().unwrap().iter().any(|x| x["key"] == v["key"] && x["incoming"] == true);
+        if v["incoming"] == true && !already {
+            self.seclog(&format!("llamada entrante detectada ({})", v["pkg"].as_str().unwrap_or("?")));
         }
         upsert(&mut self.notifs.lock().unwrap(), v, 100);
         let popup = v["quiet"] != true;
@@ -414,6 +428,9 @@ impl Core {
             k if k.starts_with("share_") => crate::share::handle(self, h, k, v),
             "notif_gone" => {
                 let key = v["key"].clone();
+                if self.notifs.lock().unwrap().iter().any(|x| x["key"] == key && x["incoming"] == true) {
+                    self.seclog("llamada entrante terminada (contestada, rechazada o colgada)");
+                }
                 self.notifs.lock().unwrap().retain(|x| x["key"] != key);
                 let empty = {
                     let mut p = self.popups.lock().unwrap();
@@ -445,6 +462,12 @@ impl Core {
             .filter(|n| n["pkg"].as_str().map_or(true, |p| !muted.contains_key(p)))
             .collect();
         let _ = h.emit("notif_sync", self.notifs_state());
+        // Una llamada que sigue sonando al (re)conectar el móvil hay que mostrarla y hacerla sonar: si el móvil parpadeó mientras
+        // sonaba, la ventana y el timbre se habían cerrado y la lista inicial no los reabre.
+        let ringing: Vec<Value> = self.notifs.lock().unwrap().iter().filter(|n| n["incoming"] == true).cloned().collect();
+        for n in ringing {
+            self.push_notif(h, &n);
+        }
     }
 
     // ---------- ajustes ----------

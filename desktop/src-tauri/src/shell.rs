@@ -17,10 +17,25 @@ pub fn open_main<R: Runtime>(h: &AppHandle<R>) {
         let _ = w.set_focus();
         return;
     }
-    if let Some(cfg) = h.config().app.windows.first() {
-        if let Ok(builder) = WebviewWindowBuilder::from_config(h, cfg) {
-            let _ = builder.build();
-        }
+    // La ventana se crea desde otro hilo. Esta función se llama desde la bandeja y desde el aviso de "segunda instancia", que
+    // corren en el hilo principal de Windows: crear allí un WebView espera al propio hilo principal y la aplicación se
+    // queda colgada ("dejó de interactuar con Windows"). Era justo lo que pasaba al abrir la app dos veces.
+    static BUILDING: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+    if BUILDING.swap(true, std::sync::atomic::Ordering::SeqCst) {
+        return; // ya se está creando: una segunda orden no debe crear otra
+    }
+    if let Some(cfg) = h.config().app.windows.first().cloned() {
+        let h = h.clone();
+        std::thread::spawn(move || {
+            if h.get_webview_window("main").is_none() {
+                if let Ok(builder) = WebviewWindowBuilder::from_config(&h, &cfg) {
+                    let _ = builder.build();
+                }
+            }
+            BUILDING.store(false, std::sync::atomic::Ordering::SeqCst);
+        });
+    } else {
+        BUILDING.store(false, std::sync::atomic::Ordering::SeqCst);
     }
 }
 

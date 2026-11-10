@@ -129,6 +129,16 @@ fn main() {
                 }
             };
             std::fs::create_dir_all(&dir)?;
+            // Primera vez en este equipo: se activa el inicio con Windows (es un agente que debe estar siempre: sin él el PC no
+            // se desbloquea con el móvil ni llegan notificaciones hasta abrirlo a mano). Se puede desactivar en Móviles y ajustes
+            // y no se vuelve a tocar. Con --data-dir (pruebas, modo portátil) nunca se toca el registro.
+            if data_dir_arg().is_none() {
+                let marker = dir.join("autostart-default");
+                if !marker.exists() {
+                    let _ = shell::set_autostart(true);
+                    let _ = std::fs::write(&marker, "1");
+                }
+            }
             tools::init(&dir);
             let (cert, key) = load_or_create_cert(&dir)?;
             let fp = hex::encode(Sha256::digest(&cert));
