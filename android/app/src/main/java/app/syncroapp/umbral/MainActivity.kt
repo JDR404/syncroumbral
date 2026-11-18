@@ -191,7 +191,17 @@ class MainActivity : Activity() {
         }
         outer.addView(nav)
         setContentView(outer)
-        show(0)
+        // Android 15 dibuja bajo las barras del sistema: los márgenes se calculan con las barras reales (y el recorte de la cámara).
+        androidx.core.view.ViewCompat.setOnApplyWindowInsetsListener(outer) { _, insets ->
+            val bars = insets.getInsets(
+                androidx.core.view.WindowInsetsCompat.Type.systemBars() or androidx.core.view.WindowInsetsCompat.Type.displayCutout()
+            )
+            header.setPadding(dp(20) + bars.left, bars.top + dp(16), dp(20) + bars.right, dp(8))
+            nav.setPadding(dp(8) + bars.left, dp(6), dp(8) + bars.right, bars.bottom + dp(8))
+            insets
+        }
+        outer.requestApplyInsets()
+        show(savedInstanceState?.getInt("page") ?: 0)
 
         if (Build.VERSION.SDK_INT >= 33 &&
             checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
@@ -261,7 +271,8 @@ class MainActivity : Activity() {
         quickCard.addView(text("Acciones rápidas", 17f, TEXT, true).apply { setPadding(0, 0, 0, dp(8)) })
         quickCard.addView(pill("Enviar archivo al PC") { pickFiles() }, lp(bottom = 8))
         quickCard.addView(pill("Enviar portapapeles al PC", filled = false) { sendClipboard() }, lp(bottom = 8))
-        quickCard.addView(pill("Bloquear SyncroUmbral en el PC", filled = false, color = BAD) { lockPc() })
+        quickCard.addView(pill("Bloquear SyncroUmbral en el PC", filled = false, color = BAD) { lockPc() }, lp(bottom = 8))
+        quickCard.addView(pill("Desbloquear SyncroUmbral en el PC", filled = false) { unlockPc() })
         c.addView(quickCard)
         return c
     }
@@ -446,7 +457,7 @@ class MainActivity : Activity() {
         val download = card()
         download.addView(text("Instalar el programa del PC", 17f, TEXT, true))
         download.addView(text(
-            "Necesitas la parte de Windows (10 u 11, 64 bits). El instalador se llama SyncroUmbral_0.1.0_x64-setup.exe y está en la " +
+            "Necesitas la parte de Windows (10 u 11, 64 bits). El instalador se llama SyncroUmbral_0.2.0_x64-setup.exe y está en la " +
                 "carpeta de entrega junto a este APK, y en el repositorio privado del proyecto (cuenta juandr404):\n$REPO\n\n" +
                 "1. Instálalo en el PC y ábrelo (se queda en la bandeja y arranca con Windows).\n" +
                 "2. Crea la clave de respaldo.\n" +
@@ -533,6 +544,16 @@ class MainActivity : Activity() {
             .show()
     }
 
+    private fun unlockPc() {
+        toast(if (Link.send(JSONObject().put("t", "unlock_pc"))) "Desbloqueo enviado al PC" else "Sin conexión con el PC")
+    }
+
+    // Al girar el móvil se conserva la sección abierta.
+    override fun onSaveInstanceState(outState: Bundle) {
+        super.onSaveInstanceState(outState)
+        outState.putInt("page", page)
+    }
+
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         handleIntent(intent)
@@ -551,6 +572,8 @@ class MainActivity : Activity() {
         }
         // `am start -a app.syncroapp.umbral.TEST_PAIR --es payload '<json>'`: muestra el mismo diálogo de confirmación que el QR.
         if (debuggable && intent?.action == "app.syncroapp.umbral.TEST_PAIR") intent.getStringExtra("payload")?.let { pair(it) }
+        // Una intención de prueba se atiende una sola vez: al recrearse la pantalla no debe repetirse (el código de vinculación es de un solo uso).
+        if (debuggable && intent?.action?.startsWith("app.syncroapp.umbral.TEST_") == true) setIntent(Intent())
     }
 
     override fun onResume() {

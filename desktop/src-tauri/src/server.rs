@@ -270,7 +270,7 @@ async fn session_loop(
                             }
                         }
                         Some(
-                            kind @ ("notif" | "notif_gone" | "status" | "mode" | "lock_pc" | "share_text" | "share_begin" | "share_chunk"
+                            kind @ ("notif" | "notif_gone" | "status" | "mode" | "lock_pc" | "unlock_pc" | "share_text" | "share_begin" | "share_chunk"
                             | "share_end"),
                         ) => on_msg(kind, &v),
                         _ => {}

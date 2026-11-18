@@ -39,7 +39,7 @@ function dialog({ title, text = '', input = null, ok = 'Aceptar', cancel = true 
     field.value = input ?? '';
     $('modal-ok').textContent = ok;
     $('modal').classList.remove('hidden');
-    if (input !== null) { field.focus(); field.select(); }
+    if (input !== null) { field.focus(); field.select(); } else $('modal-ok').focus();
     const done = (v) => {
       $('modal').classList.add('hidden');
       $('modal-ok').onclick = $('modal-cancel').onclick = field.onkeydown = null;
@@ -51,6 +51,14 @@ function dialog({ title, text = '', input = null, ok = 'Aceptar', cancel = true 
     field.onkeydown = (e) => { if (e.key === 'Enter') $('modal-ok').click(); if (e.key === 'Escape') done(null); };
   });
 }
+
+// Escape cierra el diálogo aunque no tenga campo de texto.
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && !$('modal').classList.contains('hidden')) {
+    const c = $('modal-cancel');
+    if (c.classList.contains('hidden')) $('modal-ok').click(); else c.click();
+  }
+});
 
 // ---------------------------------------------------------------- paneles de archivos
 
@@ -69,10 +77,18 @@ const phoneAdapter = {
   },
   join: (b, n) => (b ? b + '/' + n : n),
   label: (p) => (p ? 'Almacenamiento interno/' + p : 'Almacenamiento interno'),
-  foot: (x) => (x ? `${fmtSize(x.free)} libres de ${fmtSize(x.total)}` : ''),
+  foot: (x) => (x ? `${fmtSize(x.free)} libres` : ''),
 };
 
 let showHidden = false;
+
+// Teclado en listas: flechas mueven el foco, Espacio selecciona, Intro abre.
+function rowKeys(e, li, toggle, open) {
+  if (e.key === 'ArrowDown') { li.nextElementSibling?.focus(); e.preventDefault(); }
+  else if (e.key === 'ArrowUp') { li.previousElementSibling?.focus(); e.preventDefault(); }
+  else if (e.key === ' ') { toggle(); e.preventDefault(); }
+  else if (e.key === 'Enter') { open(); e.preventDefault(); }
+}
 
 class Pane {
   constructor(el, adapter) {
@@ -135,13 +151,16 @@ class Pane {
     const shown = this.visible();
     const hiddenCount = this.items.length - shown.length;
     this.pathEl.textContent = this.path === null ? '' : this.a.label(this.path);
-    this.footEl.textContent = this.err || (this.path === null ? '' : `${shown.length} elementos${hiddenCount ? ` (${hiddenCount} ocultos)` : ''}  ${this.a.foot(this.extra)}`);
+    // Un aviso o error se lee entero dentro del panel; el pie queda para el recuento.
+    this.footEl.textContent = this.err && shown.length ? this.err : this.err ? '' : (this.path === null ? '' : `${shown.length} elementos${hiddenCount ? ` (${hiddenCount} ocultos)` : ''}  ${this.a.foot(this.extra)}`);
+    this.footEl.title = this.footEl.textContent;
     this.footEl.style.color = this.err ? 'var(--bad)' : '';
     this.listEl.replaceChildren();
     if (!shown.length) {
       const li = document.createElement('li');
       li.className = 'empty';
-      li.textContent = this.err ? '' : this.path === null ? 'Sin datos' : 'Carpeta vacía';
+      li.style.color = this.err ? 'var(--bad)' : '';
+      li.textContent = this.err || (this.path === null ? 'Sin datos' : 'Carpeta vacía');
       this.listEl.append(li);
       return;
     }
@@ -154,13 +173,24 @@ class Pane {
       name.textContent = it.name;
       const meta = document.createElement('span');
       meta.className = 'meta';
-      meta.textContent = [it.dir ? '' : fmtSize(it.size), fmtDate(it.mtime)].filter(Boolean).join('   ');
+      for (const part of [it.dir ? '' : fmtSize(it.size), fmtDate(it.mtime)].filter(Boolean)) {
+        const s = document.createElement('span');
+        s.textContent = part;
+        meta.append(s);
+      }
+      name.title = it.name;
       li.append(name, meta);
-      li.onclick = () => {
+      li.tabIndex = 0;
+      li.setAttribute('role', 'option');
+      li.setAttribute('aria-selected', this.sel.has(it.name) ? 'true' : 'false');
+      const toggle = () => {
         if (this.sel.has(it.name)) this.sel.delete(it.name); else this.sel.add(it.name);
         li.classList.toggle('sel');
+        li.setAttribute('aria-selected', this.sel.has(it.name) ? 'true' : 'false');
       };
+      li.onclick = toggle;
       li.ondblclick = () => { if (it.dir) this.load(this.a.join(this.path, it.name)); };
+      li.onkeydown = (e) => rowKeys(e, li, toggle, () => { if (it.dir) this.load(this.a.join(this.path, it.name)); });
       this.listEl.append(li);
     }
   }
@@ -352,10 +382,17 @@ function renderApps() {
     meta.className = 'app-meta';
     meta.textContent = `${a.version || '-'}  ·  ${fmtSize(a.size)}  ·  act. ${fmtDate(a.updated).slice(0, 10)}`;
     li.append(img, main, meta);
-    li.onclick = () => {
+    li.tabIndex = 0;
+    li.setAttribute('role', 'option');
+    const pick = () => {
       appSel = a.pkg;
-      for (const el of ul.children) el.classList.toggle('sel', el.dataset.pkg === appSel);
+      for (const el of ul.children) {
+        el.classList.toggle('sel', el.dataset.pkg === appSel);
+        el.setAttribute('aria-selected', el.dataset.pkg === appSel ? 'true' : 'false');
+      }
     };
+    li.onclick = pick;
+    li.onkeydown = (e) => rowKeys(e, li, pick, pick);
     ul.append(li);
   }
 }
@@ -402,7 +439,7 @@ async function refreshOpenApps() {
     }
   }
 }
-setInterval(refreshOpenApps, 3000);
+setInterval(() => { if (!document.hidden) refreshOpenApps(); }, 3000);
 
 function clearApps() {
   openApps = new Set();
@@ -530,7 +567,7 @@ $('web-forget').onclick = async () => {
 
 new ResizeObserver(() => placeWeb()).observe($('web-stage'));
 window.addEventListener('resize', placeWeb);
-setInterval(() => { if (!$('tab-web').classList.contains('hidden')) loadWeb(); }, 3000);
+setInterval(() => { if (!document.hidden && !$('tab-web').classList.contains('hidden')) loadWeb(); }, 3000);
 
 // ---------------------------------------------------------------- notificaciones
 
@@ -792,6 +829,7 @@ function tab(name) {
   for (const t of ['files', 'notifs', 'web', 'apps', 'settings']) {
     $('tab-' + t).classList.toggle('hidden', t !== name);
     $('tab-btn-' + t).classList.toggle('active', t === name);
+    if (t === name) $('tab-btn-' + t).setAttribute('aria-current', 'page'); else $('tab-btn-' + t).removeAttribute('aria-current');
   }
   if (name === 'web') { loadWeb(); placeWeb(); } else invoke('web_hide'); // el servicio no debe tapar las demás pestañas
   if (name === 'settings') { loadAutostart(); loadTools(); }
@@ -850,6 +888,18 @@ function setSide(collapsed) {
 }
 $('side-toggle').onclick = () => setSide(!document.querySelector('.side').classList.contains('collapsed'));
 try { if (localStorage.getItem('side-collapsed') === '1') setSide(true); } catch { /* sin almacenamiento */ }
+// Ventana estrecha: el panel se pliega solo (sin cambiar lo que el usuario eligió) para que el contenido quepa.
+const narrow = window.matchMedia('(max-width: 980px)');
+function autoSide() {
+  const side = document.querySelector('.side');
+  if (narrow.matches) { side.classList.add('collapsed'); setTimeout(placeWeb, 60); return; }
+  let pref = false;
+  try { pref = localStorage.getItem('side-collapsed') === '1'; } catch { /* sin almacenamiento */ }
+  side.classList.toggle('collapsed', pref);
+  setTimeout(placeWeb, 60);
+}
+narrow.addEventListener('change', autoSide);
+if (narrow.matches) autoSide();
 
 // Herramientas externas (adb, scrcpy): estado e instalación.
 async function loadTools() {

@@ -41,11 +41,30 @@ class LinkService : Service() {
         super.onDestroy()
     }
 
+    /** Acción de la notificación que envía un broadcast interno (nadie más puede dispararlo: explícito e inmutable). */
+    private fun action(label: String, act: String, code: Int, unlockedPhoneRequired: Boolean): NotificationCompat.Action {
+        val pi = android.app.PendingIntent.getBroadcast(
+            this, code, Intent(act).setClass(this, ActionReceiver::class.java),
+            android.app.PendingIntent.FLAG_IMMUTABLE or android.app.PendingIntent.FLAG_UPDATE_CURRENT
+        )
+        return NotificationCompat.Action.Builder(0, label, pi)
+            // Desbloquear el PC desde la pantalla de bloqueo del móvil sería regalar la llave: exige desbloquear el teléfono.
+            .setAuthenticationRequired(unlockedPhoneRequired)
+            .build()
+    }
+
     private fun buildNotification(): Notification =
         NotificationCompat.Builder(this, CHANNEL)
             .setSmallIcon(R.drawable.ic_stat_syncro)
             .setContentTitle("SyncroUmbral")
             .setContentText(Status.text)
+            .apply {
+                // Los botones solo tienen sentido con el PC conectado.
+                if (Status.connected) {
+                    addAction(action("Bloquear", ActionReceiver.ACTION_LOCK, 1, false))
+                    addAction(action("Desbloquear", ActionReceiver.ACTION_UNLOCK, 2, true))
+                }
+            }
             // Al tocar el aviso se abre la app (antes había que buscarla).
             .setContentIntent(
                 android.app.PendingIntent.getActivity(

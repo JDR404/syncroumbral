@@ -22,6 +22,7 @@ class LinkClient(private val ctx: Context) {
     @Volatile private var running = false
     @Volatile private var ws: WebSocket? = null
     private var thread: Thread? = null
+    private var failures = 0
 
     fun start() {
         if (running) return
@@ -33,6 +34,7 @@ class LinkClient(private val ctx: Context) {
         running = false
         ws?.cancel()
         thread?.interrupt()
+        io.shutdownNow() // sin esto los hilos de peticiones quedarían vivos tras detener el servicio
         Status.set("Detenido")
     }
 
@@ -69,8 +71,10 @@ class LinkClient(private val ctx: Context) {
                     }
                 }
                 if (running) {
+                    // Espera creciente (3 s hasta 30 s) mientras el PC no aparece: con el PC apagado no se gasta batería buscando sin parar.
+                    failures = if (reached) 0 else (failures + 1).coerceAtMost(5)
                     Status.set(if (reached) "Desconectado, reintentando…" else "PC no encontrado, reintentando…")
-                    Thread.sleep(if (reached) 1000 else 3000)
+                    Thread.sleep(if (reached) 1000 else minOf(30_000L, 3000L * (1L shl (failures - 1))))
                 }
             } catch (_: InterruptedException) {
                 return
@@ -178,7 +182,7 @@ class LinkClient(private val ctx: Context) {
     }
 
     /** Peticiones del PC (archivos). Se atienden fuera del hilo de red para no frenar los latidos. */
-    private val io = Executors.newFixedThreadPool(4)
+    private val io = Executors.newFixedThreadPool(4) { r -> Thread(r, "umbral-io").apply { isDaemon = true } }
 
     private fun answer(ws: WebSocket, req: JSONObject) {
         val res = JSONObject().put("t", "res").put("id", req.getLong("id"))

@@ -81,4 +81,5 @@ no viajan por este canal: el PC las ejecuta con `adb`, localizando el móvil por
 - Mientras el móvil está presente manda la presencia; si se va, se bloquea siempre.
 - Con el móvil ausente solo se vuelve a `UNLOCKED` con la clave (5 fallos: espera creciente desde 30 s).
 - El desbloqueo con clave dura hasta que el usuario pulsa "Bloquear ahora" o el móvil se conecta y se va.
+- El móvil puede pedir `{"t":"lock_pc"}` (bloquear) y `{"t":"unlock_pc"}` (levantar un bloqueo con el móvil presente) desde la notificación o la app. En Android la acción "Desbloquear" de la notificación exige tener el teléfono desbloqueado.
 - "Bloquear ahora" gana sobre la presencia: sigue bloqueado aunque el móvil esté conectado, hasta usar la clave o hasta que el móvil se reconecte.

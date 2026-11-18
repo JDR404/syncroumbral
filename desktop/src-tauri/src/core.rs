@@ -408,6 +408,14 @@ impl Core {
 
     /// Mensaje espontáneo del móvil. Con la app bloqueada se ignora: no se muestra ni se guarda nada.
     pub fn on_phone_event<R: Runtime>(&self, h: &AppHandle<R>, kind: &str, v: &Value) {
+        // Botón "Desbloquear" del móvil (notificación o app): el móvil autenticado y presente es la llave. Va antes de la
+        // comprobación de bloqueo porque su función es justo abrir. En el móvil la acción exige tener el teléfono desbloqueado.
+        if kind == "unlock_pc" {
+            self.seclog("desbloqueo pedido desde el móvil");
+            self.unlock_from_phone();
+            self.notify(h);
+            return;
+        }
         if self.is_locked() {
             return;
         }
@@ -802,6 +810,14 @@ impl Core {
         let mut i = self.inner.lock().unwrap();
         i.manual = false;
         i.forced = true;
+    }
+
+    /// Levanta un bloqueo pedido por el usuario. Solo se llama desde una sesión autenticada del móvil, es decir, con el móvil presente.
+    pub fn unlock_from_phone(&self) {
+        let mut i = self.inner.lock().unwrap();
+        if i.present {
+            i.forced = false;
+        }
     }
 
     pub fn is_locked(&self) -> bool {

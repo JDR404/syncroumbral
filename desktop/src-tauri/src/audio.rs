@@ -24,10 +24,13 @@ pub fn init(dir: &std::path::Path) {
 }
 
 /// Mientras `active` sea true, mantiene silenciado el resto del PC; al volverse false restaura todo.
+///
+/// En las pruebas automáticas (`cargo test`) no hace nada: las pruebas de llamadas entrantes la activan y, al terminar el programa
+/// de pruebas, el hilo se corta antes de restaurar y dejaba mudo el audio real del PC.
 pub fn duck_while(active: Arc<AtomicBool>) {
-    #[cfg(windows)]
+    #[cfg(all(windows, not(test)))]
     std::thread::spawn(move || imp::run(&active));
-    #[cfg(not(windows))]
+    #[cfg(any(not(windows), test))]
     let _ = active;
 }
 
@@ -52,6 +55,16 @@ mod imp {
             CoTaskMemFree(Some(p.0 as *const _));
             s
         }
+    }
+
+    /// Programas por los que pasa TODO el audio del PC (mejoradores, mezcladores virtuales). Silenciar su sesión deja el PC
+    /// entero mudo, también el timbre de SyncroUmbral; las sesiones de las apps que alimentan ya se silencian por separado.
+    /// El identificador de sesión incluye la ruta del ejecutable, así que basta mirar su texto.
+    pub fn is_audio_pipeline(session_id: &str) -> bool {
+        let s = session_id.to_lowercase();
+        ["fxsound", "voicemeeter", "equalizerapo", "equalizer apo", "peace.exe", "audiorelay", "virtual audio cable", "vb-audio"]
+            .iter()
+            .any(|n| s.contains(n))
     }
 
     fn journal_write(ids: &[String]) {
@@ -156,12 +169,16 @@ mod imp {
                 if ctl.GetState()?.0 != 1 {
                     continue;
                 }
+                let id = session_id(&ctl2);
+                if id.as_deref().map_or(false, is_audio_pipeline) {
+                    continue; // FxSound y similares: silenciarlo apagaría todo el audio del PC
+                }
                 let vol: ISimpleAudioVolume = ctl.cast()?;
                 if vol.GetMute()?.as_bool() {
                     continue; // ya estaba en silencio (por el usuario o por una pasada anterior)
                 }
                 vol.SetMute(true, std::ptr::null())?;
-                if let Some(id) = session_id(&ctl2) {
+                if let Some(id) = id {
                     ids.push(id);
                 }
                 muted.push(vol);
@@ -233,8 +250,29 @@ mod imp {
             }
         }
 
-        /// Con un dispositivo de audio: tras una pasada todo lo ajeno que sonaba queda en silencio y se restaura al terminar.
         #[test]
+        fn audio_enhancers_are_never_muted() {
+            assert!(is_audio_pipeline(r"{0.0.0.00000000}.{abc}|\Device\HarddiskVolume3\Program Files\FxSound\FxSound.exe%b{0}"));
+            assert!(is_audio_pipeline(r"...\VoiceMeeter\voicemeeter8x64.exe..."));
+            assert!(!is_audio_pipeline(r"...\Google\Chrome\Application\chrome.exe%b{0}"));
+        }
+
+        /// Reparación (cargo test repair_audio -- --ignored --nocapture): quita el silencio de todas las sesiones de todos los
+        /// dispositivos de salida, por si una ejecución o prueba interrumpida dejó algo mudo (p. ej. FxSound, por donde pasa todo).
+        #[test]
+        #[ignore]
+        fn repair_audio() {
+            unsafe {
+                let _ = CoInitializeEx(None, COINIT_MULTITHREADED);
+            }
+            unmute_listed(&[], true);
+        }
+
+        /// Con un dispositivo de audio: tras una pasada todo lo ajeno que sonaba queda en silencio y se restaura al terminar.
+        /// Es `#[ignore]` porque silencia de verdad lo que suena en el PC (también un mejorador como FxSound): si algo la
+        /// interrumpe, el usuario se queda sin sonido. Se ejecuta a mano: cargo test mutes_foreign -- --ignored
+        #[test]
+        #[ignore]
         fn mutes_foreign_sessions_and_restores_them() {
             unsafe {
                 if CoInitializeEx(None, COINIT_MULTITHREADED).is_err() {

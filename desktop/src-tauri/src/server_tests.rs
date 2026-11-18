@@ -796,3 +796,33 @@ async fn password_unlock_forced_lock_and_attempt_limit() {
     let e = h.core.unlock_with_password("secreto-123").unwrap_err();
     assert!(e.contains("Espera"), "tras 5 fallos debe haber espera, incluso con la clave buena: {e}");
 }
+
+#[tokio::test]
+async fn phone_can_lock_and_unlock_the_pc_from_its_notification() {
+    let h = harness(Duration::from_secs(10)).await;
+    h.core.set_password("secreto-123").unwrap();
+    let key = SigningKey::random(&mut rand::rngs::OsRng);
+    pair_device(&h, &key).await;
+    let mut ws = connect(h.port, &h.fp).await.unwrap();
+    assert_eq!(login(&mut ws, &key).await["t"], "ok");
+    settle().await;
+    assert!(!h.core.is_locked(), "con el móvil presente está abierta");
+
+    say(&mut ws, json!({"t": "lock_pc"})).await;
+    settle().await;
+    assert!(h.core.is_locked(), "el botón Bloquear del móvil bloquea");
+
+    say(&mut ws, json!({"t": "unlock_pc"})).await;
+    settle().await;
+    assert!(!h.core.is_locked(), "el botón Desbloquear del móvil abre sin la clave");
+
+    // Un desbloqueo sin sesión autenticada no existe: el mensaje solo se atiende dentro de una sesión.
+    h.core.lock_now();
+    h.core.unlock_from_phone(); // con el móvil presente (sesión abierta) levanta el bloqueo
+    assert!(!h.core.is_locked());
+    drop(ws);
+    settle().await;
+    h.core.lock_now();
+    h.core.unlock_from_phone();
+    assert!(h.core.is_locked(), "sin móvil presente no se levanta nada");
+}
