@@ -1,0 +1,39 @@
+import { Theme, Notif, Pill } from "common.slint";
+import { NotifCard } from "notif.slint";
+
+// Ventana emergente de notificaciones: sin bordes, siempre encima, abajo a la derecha.
+export component ToastWindow inherits Window {
+    title: "SyncroUmbral: notificaciones";
+    icon: @image-url("icon.png");
+    no-frame: true;
+    always-on-top: true;
+    background: Theme.bg;
+    default-font-family: "Segoe UI";
+    default-font-size: 13px;
+    in property <[Notif]> items;
+    in property <string> status;
+    callback dismiss(string);
+    callback reply(string, int, string);
+    callback answer(string);
+    callback end(string);
+    callback action(string, int);
+    callback open-app();
+    width: 400px;
+    VerticalLayout {
+        padding: 8px;
+        spacing: 8px;
+        for n in root.items: Rectangle {
+            height: card.height;
+            card := NotifCard {
+                n: n;
+                status: root.status;
+                width: parent.width;
+                dismissed => { root.dismiss(n.key); }
+                reply(t) => { root.reply(n.key, n.reply-index, t); }
+                answer => { root.answer(n.key); }
+                end => { root.end(n.key); }
+                action(i) => { root.action(n.key, i); }
+            }
+        }
+    }
+}
