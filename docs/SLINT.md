@@ -1,63 +1,75 @@
-# Interfaz nativa con Slint (prototipo)
+# Interfaz nativa con Slint
 
-Carpeta: [`desktop-slint/`](../desktop-slint). Es un crate **independiente**: no toca la app actual (`desktop/`), que sigue siendo la que se instala.
+Carpeta: [`desktop-slint/`](../desktop-slint). Es SyncroUmbral completo con interfaz nativa y **sin WebView**: un solo proceso, dibujado por
+software (sin OpenGL ni GPU). Comparte con la versión Tauri (`desktop/`) **todo el agente**: servidor TLS, estado, transferencias, audio,
+adb/scrcpy, claves y móviles vinculados (misma carpeta de datos, así que se puede pasar de una a otra sin volver a vincular).
 
-## Por qué
+## Medición (2026-11-19, Windows 11, mismo PC, Pixel 9 Pro conectado)
 
-La interfaz actual es HTML dentro de WebView2 (Edge). Cada vez que se abre la ventana aparecen varios procesos de Edge. Slint dibuja la
-interfaz nativamente, en un solo proceso, **por software** (sin OpenGL ni GPU), así que debería funcionar en cualquier PC con poca memoria.
+| | Procesos | Memoria privada | Memoria de trabajo* |
+|---|---|---|---|
+| Versión Tauri con la **ventana abierta** | 7 | **230 MB** | 419 MB |
+| Versión Slint con la ventana abierta y el móvil conectado | 1 | **8 MB** | 34 MB |
+| Versión Slint con la ventana cerrada (bandeja) | 1 | 8 MB | 28 MB |
 
-## Medición (2026-11-17, Windows 11, mismo PC)
+\* La memoria de trabajo cuenta páginas compartidas entre procesos de WebView2; la privada es la comparación justa.
 
-| | Procesos | Memoria privada | Memoria de trabajo* | Ejecutable |
-|---|---|---|---|---|
-| App actual (Tauri + WebView2), solo agente en la bandeja | 1 | 7–8 MB | 44 MB | 5,4 MB |
-| App actual con la **ventana abierta** | 7 | **230 MB** | **419 MB** | — |
-| Prototipo Slint con la ventana abierta | 1 | **5–6 MB** | **19–22 MB** | 8,1 MB |
+## Cómo está hecho
 
-\* La memoria de trabajo cuenta páginas compartidas entre los procesos de WebView2, así que la cifra de la app actual está inflada; la
-**memoria privada** es la comparación más justa. Medido con `Process.WorkingSet64` y `PrivateMemorySize64`.
+```
+desktop/src-tauri/src/   agente (sin Tauri):  core, server, share, transfer, api, boot, autostart, services, audio, adb...
+        ui.rs            trait `Ui`: lo único que el agente necesita de la interfaz (emit, toast_show, toast_hide, close_web)
+        tauri_ui.rs      implementación para Tauri (WebView2)
+desktop-slint/src/
+        main.rs          incluye los módulos del agente con #[path] (no se copia código)
+        glue.rs          implementación `Ui` para Slint y todos los callbacks de la interfaz
+        shell.rs         arranque: instancia única, bandeja, ventana oculta al cerrar
+desktop-slint/ui/        app.slint (ventana), notif.slint (tarjetas), toast.slint (aviso emergente), common.slint (paleta, botones, interruptores)
+```
 
-**Ojo:** el prototipo es solo la interfaz. Al conectarle el agente (servidor TLS, estado, transferencias, tokio) subirá. Una estimación
-razonable es que la app completa quede en unas decenas de MB (hoy el agente solo ocupa 44 MB de trabajo, de los que una parte es el motor
-de Tauri que se sustituye), pero **eso hay que medirlo cuando esté conectado**.
+Si cambias algo del agente, las dos interfaces lo reciben: las 43 pruebas del agente corren con Tauri y la de `glue_tests.rs` ejercita el
+agente real a través de la interfaz Slint (clave, archivos, notificaciones, QR, bloqueo).
 
-## Qué hay
+## Qué tiene
 
-- Pantalla de bloqueo, panel lateral (se pliega solo por debajo de 980 px), **Archivos** (dos paneles; "Este PC" lista carpetas reales), **Notificaciones**
-  (descartar y limpiar) y **Ajustes** (interruptores).
-- Misma paleta teal oscura que la app actual.
-- Todo lo del móvil (archivos, notificaciones) y la clave (`demo`) son datos de demostración.
-- Una prueba automática sin ventana (`cargo test`) comprueba desbloquear, bloquear, seleccionar y descartar.
+- Pantalla de bloqueo (clave o móvil presente), crear clave la primera vez.
+- **Archivos**: dos paneles (PC y móvil), enviar y traer con progreso y cancelar.
+- **Notificaciones**: tarjetas con respuesta, botones del reproductor, llamadas (contestar y colgar), descartar, limpiar todas.
+- **Aviso emergente** abajo a la derecha (sin robar el foco, sin icono en la barra de tareas, se cierra solo salvo en llamadas).
+- **Aplicaciones del móvil**: lista, abrir en una ventana del PC (scrcpy), detener, ajustes de la app.
+- **Mensajería** (WhatsApp, Instagram, Facebook, Messenger, Telegram): cada servicio en una ventana propia de Edge (`--app`) con perfil
+  aislado y la sesión guardada; se cierra al bloquear. Es la única parte que usa un navegador, y solo mientras la abres.
+- **Móviles y ajustes**: móviles vinculados, **QR de vinculación** con huella, inicio con Windows, silenciado en llamadas, modo completo,
+  instalar adb y scrcpy.
+- Bandeja del sistema (abrir, bloquear, salir), **una sola instancia** y cerrar la ventana la oculta.
 
-## Cómo probarlo
+## Instalar
 
 ```
 cd desktop-slint
-cargo run --release                          # arranca bloqueado (clave de prueba: demo)
-cargo run --release -- --open --page 1       # abierto, en Notificaciones (0 archivos, 1 notificaciones, 2 ajustes)
-cargo run --release -- --open --small        # tamaño mínimo 860x560, para ver el panel plegado
-cargo test
+cargo build --release
+powershell -ExecutionPolicy Bypass -File instalar.ps1
 ```
 
-## Qué falta para sustituir a la interfaz actual
+`instalar.ps1` sustituye a `syncroumbral.exe` en `%LOCALAPPDATA%\SyncroUmbral`, activa el inicio con Windows, crea el acceso directo y lo abre.
 
-| # | Tarea | Nota |
-|---|---|---|
-| 1 | **Separar el agente de Tauri.** Hoy `core.rs`, `toast.rs`, `shell.rs`, `web.rs`, `appwin.rs` usan `AppHandle` de Tauri para emitir eventos y abrir ventanas | Extraer una biblioteca (`syncroumbral-core`) con un `trait` de eventos; Tauri y Slint serían dos "frontends" |
-| 2 | Conectar los comandos (`commands.rs`) y los eventos (`state`, `notif`, `transfer`, `mode`...) a Slint | `slint::invoke_from_event_loop` para actualizar desde otros hilos |
-| 3 | Bandeja del sistema, inicio con Windows, una sola instancia | Hoy los da Tauri (`tray-icon` integrado y el plugin de instancia única): habría que usar el crate `tray-icon` directamente y reescribir esa parte de `shell.rs` |
-| 4 | Ventana emergente de notificaciones y pantalla de llamada | Ventanas Slint pequeñas, sin bordes |
-| 5 | Arrastrar y soltar archivos desde el Explorador | Eventos de `winit` |
-| 6 | QR de vinculación | El agente ya genera el QR con el crate `qrcode` (como SVG); habría que dibujarlo como imagen |
-| 7 | **Mensajería web** (WhatsApp, Telegram...) | Necesita un motor de navegador: abrirla bajo demanda en una ventana aislada de Edge (`msedge --app=URL --user-data-dir=...`) y cerrarla al bloquear. Es la única pieza que seguiría usando WebView2, y solo mientras se use |
-| 8 | Aplicaciones del móvil y herramientas (adb, scrcpy) | Solo hay que dibujar las listas; la lógica ya existe |
-| 9 | Tipografía e iconos, interruptores con la paleta de la app | Hoy los interruptores usan el estilo por defecto de Slint |
-| 10 | Revisar la **licencia de Slint** antes de distribuir | GPLv3, o gratuita para escritorio con atribución, o comercial |
+## Probar
 
-## Decisión: por qué Slint y no egui
+```
+cargo test --release                       # 18 pruebas (agente + interfaz sin ventana)
+cargo build --release --features selftest  # añade --test-unlock=CLAVE --test-page=N --test-notif --test-qr para capturas
+```
+
+## Pendiente
+
+- Arrastrar archivos desde el Explorador (winit lo permite; falta conectarlo).
+- Iconos de las aplicaciones y fotos de los contactos en las tarjetas.
+- Carátula del reproductor y cronómetro de la llamada en curso.
+- Revisar la **licencia de Slint** antes de distribuir: GPLv3, o gratuita para escritorio con atribución, o comercial.
+
+## Por qué Slint y no egui
 
 - Renderizado por software: funciona sin GPU y en máquinas virtuales (egui necesita OpenGL o wgpu).
 - Interfaz declarativa y accesible (IME, lectores de pantalla); egui dibuja en modo inmediato y repinta más.
-- Se parece más a la interfaz Material actual con poco código (este prototipo son unas 425 líneas de `.slint` y 197 de Rust).
+- Se parece más a la interfaz Material actual con poco código.
 - Coste: licencia más restrictiva que la de egui (MIT/Apache).
