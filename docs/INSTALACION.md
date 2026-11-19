@@ -5,7 +5,7 @@
 | En el PC | En el móvil |
 |---|---|
 | Windows 10 u 11 de 64 bits | Android 8 o superior (probado en Android 17, Pixel 9 Pro) |
-| El instalador `SyncroUmbral_0.2.0_x64-setup.exe` | El archivo `app-release.apk` (versión de producción: no depurable, firmada con tu clave) |
+| El instalador `SyncroUmbral_0.3.0_x64-setup.exe` | El archivo `app-release.apk` (versión de producción: no depurable, firmada con tu clave) |
 | Conexión a Internet solo si falta WebView2 (Windows 11 ya lo trae) | Estar en la **misma red WiFi** que el PC |
 | `adb` y `scrcpy` solo para el **modo completo** (SyncroUmbral los descarga por ti, ver paso 5) | Depuración inalámbrica o USB, solo para el **modo completo** |
 
@@ -34,7 +34,7 @@ La red WiFi no puede tener "aislamiento de clientes" (las redes de invitados sue
 
 ## 1. Instalar en el PC
 
-1. Copia `SyncroUmbral_0.2.0_x64-setup.exe` al otro PC y ejecútalo. Se instala solo para tu usuario, sin pedir administrador.
+1. Copia el instalador (o, para la interfaz nativa, `desktop-slintsyncroumbral.exe` con `instalar.ps1`) al otro PC y ejecútalo. Se instala solo para tu usuario, sin pedir administrador.
 2. Windows SmartScreen avisará porque el instalador no está firmado: pulsa "Más información" y "Ejecutar de todas formas".
 3. Abre SyncroUmbral y crea la **clave de respaldo** (mínimo 6 caracteres). Sirve para abrir la aplicación cuando el móvil no está.
 

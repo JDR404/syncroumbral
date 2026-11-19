@@ -6,7 +6,7 @@
 > está abierta. Si se va, la aplicación se bloquea y oculta todo lo que había en pantalla. Sin móvil, solo se abre con una clave de respaldo.
 > Además trae al PC tus notificaciones, tus archivos y tus apps.
 
-Estado: **beta 0.2.0** · Parte del portafolio de **SyncroApp** · Desarrollador: SyncroApp, `syncroapp.dev@gmail.com`
+Estado: **beta 0.3.0** · Parte del portafolio de **SyncroApp** · Desarrollador: SyncroApp, `syncroapp.dev@gmail.com`
 (nombre anterior del proyecto: Umbral) · Seguridad: [docs/AUDITORIA_SEGURIDAD.md](docs/AUDITORIA_SEGURIDAD.md)
 
 Novedades de cada versión: [CHANGELOG.md](CHANGELOG.md).
@@ -95,7 +95,10 @@ CHANGELOG.md              Qué cambió en cada versión
 
 Guía completa (firewall, Play Protect, instalación por `adb`): [docs/INSTALACION.md](docs/INSTALACION.md). Resumen:
 
-1. Instala `SyncroUmbral_0.2.0_x64-setup.exe` en el PC (por usuario, sin administrador) y crea la **clave de respaldo**.
+1. En el PC (por usuario, sin administrador), elige una de las dos interfaces (mismo agente, mismos datos):
+   - **Nativa Slint (recomendada, ~8 MB, sin WebView):** `cd desktop-slint`, `cargo build --release` y `powershell -ExecutionPolicy Bypass -File instalar.ps1`.
+   - **Tauri/WebView2:** instala `SyncroUmbral_0.3.0_x64-setup.exe`.
+   Crea la **clave de respaldo** al abrirla.
 2. Instala `app-release.apk` en el móvil y concede: archivos, acceso a notificaciones, avisos, y (opcional) contestar llamadas y
    mostrar sobre otras apps. La pestaña **Permisos** de la app muestra qué falta.
 3. En el PC: *Móviles y ajustes* → "Mostrar QR de vinculación". En el móvil: "Escanear QR del PC" y confirma que la huella coincide.
@@ -111,10 +114,15 @@ PC (requiere Rust, Node y las Build Tools de MSVC):
 ```
 cd desktop
 npm install
-npx tauri build                     # instalador: src-tauri/target/release/bundle/nsis/SyncroUmbral_0.2.0_x64-setup.exe
+npx tauri build                     # instalador: src-tauri/target/release/bundle/nsis/SyncroUmbral_0.3.0_x64-setup.exe
 npx tauri build --no-bundle         # solo el ejecutable: src-tauri/target/release/syncroumbral.exe
 npx tauri build --debug --no-bundle # ejecutable de depuración (más rápido de compilar)
 cargo test --manifest-path src-tauri/Cargo.toml
+
+# interfaz nativa Slint
+cd ../desktop-slint
+cargo build --release               # target/release/syncroumbral.exe
+cargo test --release                # agente + interfaz sin ventana
 ```
 
 Android (requiere JDK 17 y el Android SDK; no hace falta Android Studio):
@@ -169,7 +177,7 @@ Fuentes: [Microsoft Phone Link](https://support.microsoft.com/en-US/phone-link?f
 
 | Fase | Qué | Por qué |
 |---|---|---|
-| Hecho en la rama `slint-prototype` | **Interfaz nativa con [Slint](https://slint.dev)** en lugar de WebView2 ([`desktop-slint/`](desktop-slint), ver [docs/SLINT.md](docs/SLINT.md)) | Un proceso y ~8 MB privados frente a 7 procesos y ~230 MB. Archivos, notificaciones con respuesta y controles, llamadas, apps del móvil en el PC, mensajería en una ventana aislada de Edge, vinculación por QR, bandeja e instancia única, probados con un Pixel 9 Pro. Revisar la licencia de Slint (GPLv3, escritorio gratuito con atribución, o comercial) antes de distribuir |
+| Hecho (0.3.0) | **Interfaz nativa con [Slint](https://slint.dev)** en lugar de WebView2 ([`desktop-slint/`](desktop-slint), ver [docs/SLINT.md](docs/SLINT.md)) | Un proceso y ~8 MB privados frente a 7 procesos y ~230 MB. Archivos, notificaciones con respuesta y controles, llamadas, apps del móvil en el PC, mensajería en una ventana aislada de Edge, vinculación por QR, bandeja e instancia única, probados con un Pixel 9 Pro. Revisar la licencia de Slint (GPLv3, escritorio gratuito con atribución, o comercial) antes de distribuir |
 | Después | Firma de código y actualizador firmado | Evitar SmartScreen y Play Protect y poder repartir parches (S-11 de la auditoría) |
 | Después | Bluetooth LE como segundo factor de proximidad | La presencia actual es "misma red", no "cerca" (S-03) |
 | Continuo | `cargo audit` y SBOM en la compilación, revisión externa | Antes de repartirla a terceros |

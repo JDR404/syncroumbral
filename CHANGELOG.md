@@ -1,6 +1,6 @@
 # Cambios
 
-## Sin publicar (rama `slint-prototype`)
+## 0.3.0 — 2026-11-19
 
 ### Interfaz nativa con Slint (sin WebView)
 - **SyncroUmbral nativo** en [`desktop-slint/`](desktop-slint): un proceso y ~8 MB privados con la ventana abierta y el móvil conectado
