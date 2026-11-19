@@ -1,5 +1,11 @@
 # Cambios
 
+## Sin publicar (rama `slint-prototype`)
+
+- **Prototipo de interfaz nativa con Slint** en [`desktop-slint/`](desktop-slint) (crate independiente; la app instalada no cambia). Un solo
+  proceso y ~6 MB privados con la ventana abierta, frente a 7 procesos y ~230 MB de la app actual. Aún sin agente conectado. Ver
+  [docs/SLINT.md](docs/SLINT.md).
+
 ## 0.2.0 — 2026-11-17
 
 ### Nuevo

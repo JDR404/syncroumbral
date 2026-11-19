@@ -1,0 +1,26 @@
+[package]
+name = "syncroumbral-slint"
+version = "0.0.1"
+edition = "2021"
+description = "Prototipo de la interfaz nativa de SyncroUmbral con Slint (sin WebView)"
+publish = false
+
+# Crate independiente: no forma parte de desktop/src-tauri (la app actual sigue intacta).
+[workspace]
+
+[dependencies]
+# Renderizado por software (sin OpenGL ni GPU): funciona en cualquier PC y es lo que menos memoria usa.
+slint = { version = "1.19", default-features = false, features = ["std", "backend-winit", "renderer-software", "compat-1-2"] }
+
+[build-dependencies]
+slint-build = "1.19"
+
+[profile.release]
+opt-level = "s"
+lto = true
+codegen-units = 1
+panic = "abort"
+strip = true
+
+[dev-dependencies]
+i-slint-backend-testing = "1.19"

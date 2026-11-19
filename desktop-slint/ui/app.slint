@@ -1,0 +1,425 @@
+// Prototipo de la interfaz nativa de SyncroUmbral. Misma paleta y estructura que desktop/ui (HTML), sin WebView.
+import { LineEdit, ListView, Switch } from "std-widgets.slint";
+
+global Theme {
+    out property <color> bg: #0e1415;
+    out property <color> surface: #171d1e;
+    out property <color> surface2: #1f2a2c;
+    out property <color> surface3: #2a3638;
+    out property <color> line: #3f4849;
+    out property <color> text: #dee3e5;
+    out property <color> muted: #a3adaf;
+    out property <color> primary: #4fd8eb;
+    out property <color> on-primary: #00363d;
+    out property <color> container: #004f58;
+    out property <color> on-container: #97f0ff;
+    out property <color> ok: #78dc77;
+    out property <color> bad: #ffb4ab;
+    out property <color> folder: #f2b93b;
+}
+
+export struct FileItem {
+    name: string,
+    meta: string,
+    dir: bool,
+    selected: bool,
+}
+
+export struct Notif {
+    app: string,
+    title: string,
+    text: string,
+    time: string,
+}
+
+// Botón en forma de píldora. kind: 0 principal, 1 tonal, 2 contorno, 3 peligro.
+component Pill inherits Rectangle {
+    in property <string> label;
+    in property <int> kind: 0;
+    in property <bool> enabled: true;
+    callback clicked();
+    height: 44px;
+    min-width: 96px;
+    border-radius: 22px;
+    background: kind == 0 ? Theme.primary
+        : kind == 1 ? #0c5c66
+        : touch.has-hover ? Theme.surface2 : transparent;
+    border-width: kind >= 2 ? 1px : 0px;
+    border-color: kind == 3 ? #8c3a34 : Theme.line;
+    opacity: enabled ? 1.0 : 0.4;
+    animate background { duration: 120ms; }
+    HorizontalLayout {
+        padding-left: 20px;
+        padding-right: 20px;
+        alignment: center;
+        Text {
+            text: root.label;
+            color: kind == 0 ? Theme.on-primary : kind == 1 ? #b7f1fa : kind == 3 ? Theme.bad : Theme.text;
+            font-size: 14px;
+            font-weight: 500;
+            vertical-alignment: center;
+        }
+    }
+    touch := TouchArea {
+        enabled: root.enabled;
+        mouse-cursor: pointer;
+        clicked => { root.clicked(); }
+    }
+}
+
+// Elemento del menú lateral.
+component NavItem inherits Rectangle {
+    in property <string> label;
+    in property <bool> active;
+    in property <bool> collapsed;
+    in property <int> badge: 0;
+    in property <string> glyph;
+    callback clicked();
+    height: 52px;
+    border-radius: 26px;
+    background: active ? Theme.container : touch.has-hover ? Theme.surface : transparent;
+    animate background { duration: 120ms; }
+    HorizontalLayout {
+        padding-left: 18px;
+        padding-right: 14px;
+        spacing: 12px;
+        alignment: start;
+        Text {
+            text: root.collapsed ? root.glyph : root.label;
+            color: active ? Theme.on-container : Theme.text;
+            font-size: 15px;
+            font-weight: 500;
+            vertical-alignment: center;
+            horizontal-stretch: 1;
+            overflow: elide;
+        }
+        if root.badge > 0 && !root.collapsed: Rectangle {
+            width: 24px;
+            height: 24px;
+            y: (parent.height - self.height) / 2;
+            border-radius: 12px;
+            background: Theme.bad;
+            Text { text: root.badge; color: #410002; font-size: 12px; font-weight: 700; horizontal-alignment: center; vertical-alignment: center; }
+        }
+    }
+    touch := TouchArea { mouse-cursor: pointer; clicked => { root.clicked(); } }
+}
+
+component FileRow inherits Rectangle {
+    in property <FileItem> item;
+    callback toggled();
+    callback opened();
+    height: 44px;
+    border-radius: 18px;
+    background: item.selected ? Theme.container : touch.has-hover ? Theme.surface2 : transparent;
+    HorizontalLayout {
+        padding-left: 14px;
+        padding-right: 14px;
+        spacing: 12px;
+        Rectangle {
+            width: 16px;
+            height: 16px;
+            y: (parent.height - self.height) / 2;
+            border-radius: item.dir ? 3px : 2px;
+            background: item.dir ? Theme.folder : transparent;
+            border-width: item.dir ? 0px : 1.5px;
+            border-color: item.selected ? Theme.on-container : Theme.muted;
+        }
+        Text {
+            text: item.name;
+            color: item.selected ? Theme.on-container : Theme.text;
+            vertical-alignment: center;
+            horizontal-stretch: 1;
+            overflow: elide;
+        }
+        Text {
+            text: item.meta;
+            color: item.selected ? Theme.on-container : Theme.muted;
+            font-size: 12px;
+            vertical-alignment: center;
+            horizontal-alignment: right;
+        }
+    }
+    touch := TouchArea {
+        mouse-cursor: pointer;
+        clicked => { root.toggled(); }
+        double-clicked => { root.opened(); }
+    }
+}
+
+component Pane inherits Rectangle {
+    in property <string> title;
+    in property <[FileItem]> files;
+    in property <string> footer;
+    in property <string> message;
+    callback toggled(int);
+    callback opened(int);
+    callback up();
+    callback refresh();
+    background: Theme.surface;
+    border-radius: 28px;
+    clip: true;
+    VerticalLayout {
+        padding-top: 14px;
+        padding-bottom: 0px;
+        spacing: 6px;
+        HorizontalLayout {
+            padding-left: 18px;
+            padding-right: 14px;
+            spacing: 8px;
+            Text { text: root.title; font-size: 18px; color: Theme.text; vertical-alignment: center; horizontal-stretch: 1; }
+            Pill { label: "Subir"; kind: 1; height: 34px; min-width: 70px; clicked => { root.up(); } }
+            Pill { label: "Actualizar"; kind: 1; height: 34px; min-width: 100px; clicked => { root.refresh(); } }
+        }
+        if root.message != "": Text {
+            text: root.message;
+            color: Theme.bad;
+            wrap: word-wrap;
+            horizontal-alignment: center;
+            vertical-alignment: center;
+            vertical-stretch: 1;
+        }
+        if root.message == "": ListView {
+            vertical-stretch: 1;
+            for item[i] in root.files: FileRow {
+                item: item;
+                toggled => { root.toggled(i); }
+                opened => { root.opened(i); }
+            }
+        }
+        Rectangle {
+            height: 40px;
+            Text { x: 20px; text: root.footer; color: Theme.muted; font-size: 13px; vertical-alignment: center; overflow: elide; width: parent.width - 40px; }
+        }
+    }
+}
+
+component NotifCard inherits Rectangle {
+    in property <Notif> n;
+    callback dismissed();
+    background: Theme.surface;
+    border-radius: 28px;
+    height: 118px;
+    HorizontalLayout {
+        padding: 18px;
+        spacing: 16px;
+        Rectangle {
+            width: 48px;
+            height: 48px;
+            border-radius: 24px;
+            background: Theme.container;
+            Text { text: "!"; color: Theme.on-container; font-size: 22px; font-weight: 700; horizontal-alignment: center; vertical-alignment: center; }
+        }
+        VerticalLayout {
+            spacing: 2px;
+            horizontal-stretch: 1;
+            HorizontalLayout {
+                Text { text: n.app; color: Theme.muted; font-size: 13px; horizontal-stretch: 1; overflow: elide; }
+                Text { text: n.time; color: Theme.muted; font-size: 13px; }
+            }
+            Text { text: n.title; color: Theme.text; font-size: 17px; font-weight: 500; overflow: elide; }
+            Text { text: n.text; color: Theme.text; opacity: 0.85; wrap: word-wrap; overflow: elide; }
+            HorizontalLayout {
+                alignment: start;
+                Pill { label: "Descartar"; kind: 2; height: 32px; min-width: 90px; clicked => { root.dismissed(); } }
+            }
+        }
+    }
+}
+
+export component AppWindow inherits Window {
+    title: "SyncroUmbral (prototipo Slint)";
+    background: Theme.bg;
+    min-width: 860px;
+    min-height: 560px;
+    preferred-width: 1100px;
+    preferred-height: 720px;
+    default-font-family: "Segoe UI";
+    default-font-size: 14px;
+
+    in-out property <bool> locked: true;
+    in-out property <int> page: 0;
+    in-out property <bool> side-collapsed: false;
+    in property <bool> present: true;
+    in property <string> device: "Pixel 9 Pro";
+    in property <string> device-sub: "Conectado · 80%";
+    in property <string> lock-error;
+    in property <string> lock-hint: "Esperando a tu móvil. Se abrirá solo cuando esté en la red.";
+    in property <[FileItem]> pc-files;
+    in property <[FileItem]> phone-files;
+    in property <string> pc-path;
+    in property <string> pc-footer;
+    in property <string> phone-message;
+    in property <string> phone-footer;
+    in property <[Notif]> notifs;
+    in-out property <bool> autostart: true;
+    in-out property <bool> mute-on-call: true;
+
+    callback unlock(string);
+    callback lock-now();
+    callback toggle-file(bool, int);
+    callback open-file(bool, int);
+    callback dismiss-notif(int);
+    callback clear-notifs();
+
+    // ---------------------------------------------------------------- bloqueo
+    if root.locked: Rectangle {
+        background: @radial-gradient(circle, #1c3a3f 0%, Theme.bg 70%);
+        Rectangle {
+            width: 400px;
+            height: 270px;
+            background: #171d1ebb;
+            border-radius: 28px;
+            VerticalLayout {
+                padding: 28px;
+                spacing: 10px;
+                alignment: center;
+                Text { text: "SyncroUmbral bloqueado"; font-size: 22px; font-weight: 500; color: Theme.text; horizontal-alignment: center; }
+                Text { text: root.lock-hint; color: Theme.muted; wrap: word-wrap; horizontal-alignment: center; }
+                pw := LineEdit {
+                    placeholder-text: "O escribe tu clave";
+                    input-type: password;
+                    accepted(t) => { root.unlock(t); }
+                }
+                Pill { label: "Desbloquear"; clicked => { root.unlock(pw.text); pw.text = ""; } }
+                Text { text: root.lock-error; color: Theme.bad; horizontal-alignment: center; }
+            }
+        }
+    }
+
+    // ---------------------------------------------------------------- principal
+    if !root.locked: HorizontalLayout {
+        // Panel lateral
+        Rectangle {
+            width: root.side-collapsed || root.width < 980px ? 76px : 264px;
+            animate width { duration: 150ms; easing: ease-out; }
+            VerticalLayout {
+                padding: 14px;
+                padding-top: 22px;
+                spacing: 6px;
+                HorizontalLayout {
+                    padding-bottom: 18px;
+                    padding-left: 8px;
+                    Text {
+                        text: root.side-collapsed || root.width < 980px ? "S" : "SyncroUmbral";
+                        color: Theme.primary;
+                        font-size: 20px;
+                        font-weight: 500;
+                        horizontal-stretch: 1;
+                    }
+                    if root.width >= 980px: Rectangle {
+                        width: 34px;
+                        height: 34px;
+                        border-radius: 17px;
+                        background: tg.has-hover ? Theme.surface : transparent;
+                        Text { text: root.side-collapsed ? "›" : "‹"; color: Theme.muted; font-size: 20px; horizontal-alignment: center; vertical-alignment: center; }
+                        tg := TouchArea { clicked => { root.side-collapsed = !root.side-collapsed; } }
+                    }
+                }
+                NavItem { label: "Archivos"; glyph: "A"; active: root.page == 0; collapsed: root.side-collapsed || root.width < 980px; clicked => { root.page = 0; } }
+                NavItem { label: "Notificaciones"; glyph: "N"; active: root.page == 1; badge: root.notifs.length; collapsed: root.side-collapsed || root.width < 980px; clicked => { root.page = 1; } }
+                NavItem { label: "Ajustes"; glyph: "C"; active: root.page == 2; collapsed: root.side-collapsed || root.width < 980px; clicked => { root.page = 2; } }
+                Rectangle { vertical-stretch: 1; }
+                Rectangle {
+                    background: Theme.surface2;
+                    border-radius: 28px;
+                    height: root.side-collapsed || root.width < 980px ? 70px : 128px;
+                    VerticalLayout {
+                        padding: root.side-collapsed || root.width < 980px ? 4px : 14px;
+                        spacing: 10px;
+                        alignment: center;
+                        if !(root.side-collapsed || root.width < 980px): VerticalLayout {
+                            Text { text: root.present ? root.device : "Móvil ausente"; color: Theme.text; font-weight: 600; overflow: elide; }
+                            Text { text: root.present ? root.device-sub : "Sesión abierta con clave"; color: Theme.muted; font-size: 13px; overflow: elide; }
+                        }
+                        Pill {
+                            label: root.side-collapsed || root.width < 980px ? "B" : "Bloquear ahora";
+                            min-width: root.side-collapsed || root.width < 980px ? 40px : 96px;
+                            clicked => { root.lock-now(); }
+                        }
+                    }
+                }
+            }
+        }
+
+        // Contenido
+        Rectangle {
+            horizontal-stretch: 1;
+            background: Theme.bg;
+            VerticalLayout {
+                padding-top: 26px;
+                padding-right: 32px;
+                padding-bottom: 22px;
+                padding-left: 12px;
+                spacing: 14px;
+
+                // Archivos
+                if root.page == 0: VerticalLayout {
+                    spacing: 14px;
+                    Text { text: "Archivos"; font-size: 32px; color: Theme.text; }
+                    HorizontalLayout {
+                        spacing: 14px;
+                        vertical-stretch: 1;
+                        Pane {
+                            title: "Este PC";
+                            files: root.pc-files;
+                            footer: root.pc-footer;
+                            toggled(i) => { root.toggle-file(false, i); }
+                            opened(i) => { root.open-file(false, i); }
+                        }
+                        Pane {
+                            title: "Móvil";
+                            files: root.phone-files;
+                            footer: root.phone-footer;
+                            message: root.phone-message;
+                            toggled(i) => { root.toggle-file(true, i); }
+                            opened(i) => { root.open-file(true, i); }
+                        }
+                    }
+                }
+
+                // Notificaciones
+                if root.page == 1: VerticalLayout {
+                    spacing: 14px;
+                    Text { text: "Notificaciones"; font-size: 32px; color: Theme.text; }
+                    HorizontalLayout {
+                        alignment: start;
+                        Pill { label: "Limpiar todas"; kind: 2; clicked => { root.clear-notifs(); } }
+                    }
+                    if root.notifs.length == 0: Text { text: "No hay notificaciones."; color: Theme.muted; }
+                    ListView {
+                        vertical-stretch: 1;
+                        for n[i] in root.notifs: Rectangle {
+                            height: 130px; // 118 de tarjeta + 12 de separación
+                            NotifCard {
+                                y: 0px;
+                                width: parent.width;
+                                n: n;
+                                dismissed => { root.dismiss-notif(i); }
+                            }
+                        }
+                    }
+                }
+
+                // Ajustes
+                if root.page == 2: VerticalLayout {
+                    spacing: 14px;
+                    alignment: start;
+                    Text { text: "Móviles y ajustes"; font-size: 32px; color: Theme.text; }
+                    Rectangle {
+                        background: Theme.surface;
+                        border-radius: 28px;
+                        height: 190px;
+                        VerticalLayout {
+                            padding: 22px;
+                            spacing: 14px;
+                            Text { text: "Funcionamiento"; font-size: 17px; color: Theme.text; }
+                            Switch { text: "Iniciar con Windows (en segundo plano)"; checked <=> root.autostart; }
+                            Switch { text: "Silenciar el resto de sonidos del PC mientras suena una llamada"; checked <=> root.mute-on-call; }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
