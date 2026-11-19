@@ -65,6 +65,10 @@ La interfaz solo habla con el agente por comandos (`invoke`) y eventos (`listen`
 | `places.rs` | Carpetas conocidas de Windows (Escritorio, Descargas...) |
 | `server_tests.rs` | Pruebas de punta a punta: un cliente que imita a la app Android contra el servidor real |
 
+### Interfaz nativa alternativa: `desktop-slint/`
+
+Comparte el agente (sin Tauri: trait `Ui` en `ui.rs`) y dibuja con Slint, sin WebView. Detalles en [SLINT.md](SLINT.md).
+
 ## Móvil (`android/`)
 
 | Archivo | Responsabilidad |

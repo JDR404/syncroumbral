@@ -98,8 +98,8 @@ pub fn open(windows: &Windows, serial: &str, pkg: &str, label: &str) -> Result<S
 
 /// Mientras haya ventanas de apps abiertas mantiene el móvil despierto con el panel apagado: con el teléfono bloqueado
 /// Android lo duerme a los 10 s y, al dormirse, apaga también la pantalla virtual (la app se ve negra).
-pub fn spawn_awake_keeper(core: std::sync::Arc<crate::core::Core>) {
-    tauri::async_runtime::spawn(async move {
+pub async fn awake_keeper(core: std::sync::Arc<crate::core::Core>) {
+    {
         let mut held = false;
         loop {
             tokio::time::sleep(Duration::from_secs(2)).await;
@@ -108,21 +108,21 @@ pub fn spawn_awake_keeper(core: std::sync::Arc<crate::core::Core>) {
                 // Se anota si el teléfono estaba dormido ANTES de despertarlo para mantenerlo: entonces nadie lo está usando.
                 let ip = core.phone_ip();
                 let ip2 = ip.clone();
-                let asleep = tauri::async_runtime::spawn_blocking(move || crate::adb::is_asleep(ip2.as_deref()))
+                let asleep = tokio::task::spawn_blocking(move || crate::adb::is_asleep(ip2.as_deref()))
                     .await
                     .unwrap_or(false);
                 if core.call("keep_awake", serde_json::json!({"on": true})).await.is_ok() {
                     held = true;
-                    let _ = tauri::async_runtime::spawn_blocking(move || crate::adb::panel_off_if_unused(ip.as_deref(), asleep)).await;
+                    let _ = tokio::task::spawn_blocking(move || crate::adb::panel_off_if_unused(ip.as_deref(), asleep)).await;
                 }
             } else if !active && held {
                 held = false;
                 core.cleanup_call("keep_awake", serde_json::json!({"on": false})).await;
                 let ip = core.phone_ip();
-                let _ = tauri::async_runtime::spawn_blocking(move || crate::adb::sleep_if_locked(ip.as_deref())).await;
+                let _ = tokio::task::spawn_blocking(move || crate::adb::sleep_if_locked(ip.as_deref())).await;
             }
         }
-    });
+    }
 }
 
 /// Paquetes con ventana abierta (descarta las que el usuario ya cerró).

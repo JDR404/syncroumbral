@@ -1,5 +1,18 @@
 # Cambios
 
+## Sin publicar (rama `slint-prototype`)
+
+### Interfaz nativa con Slint (sin WebView)
+- **SyncroUmbral nativo** en [`desktop-slint/`](desktop-slint): un proceso y ~8 MB privados con la ventana abierta y el móvil conectado
+  (la versión Tauri usa ~230 MB en 7 procesos). Misma carpeta de datos y mismos móviles vinculados. Ver [docs/SLINT.md](docs/SLINT.md).
+- Archivos, notificaciones con respuesta y controles del reproductor, llamadas, aplicaciones del móvil en el PC, mensajería en una ventana
+  aislada de Edge, vinculación por QR, ajustes, aviso emergente, bandeja e instancia única.
+- Instalador de usuario: `desktop-slint/instalar.ps1`.
+
+### Agente
+- El agente ya no depende de Tauri: nuevo trait `Ui` (`ui.rs`) y módulos compartidos (`api`, `boot`, `autostart`, `services`). La versión
+  Tauri lo implementa con `tauri_ui.rs`. Sin cambios de comportamiento: las 43 pruebas siguen pasando.
+
 ## 0.2.0 — 2026-11-17
 
 ### Nuevo
