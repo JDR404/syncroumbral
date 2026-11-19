@@ -6,7 +6,7 @@
 > está abierta. Si se va, la aplicación se bloquea y oculta todo lo que había en pantalla. Sin móvil, solo se abre con una clave de respaldo.
 > Además trae al PC tus notificaciones, tus archivos y tus apps.
 
-Estado: **beta 0.3.0** · Parte del portafolio de **SyncroApp** · Desarrollador: SyncroApp, `syncroapp.dev@gmail.com`
+Estado: **beta 0.3.0** · PC con interfaz nativa Slint (la versión Tauri de `desktop/` queda como referencia y ya no se publica) · Parte del portafolio de **SyncroApp** · Desarrollador: SyncroApp, `syncroapp.dev@gmail.com`
 (nombre anterior del proyecto: Umbral) · Seguridad: [docs/AUDITORIA_SEGURIDAD.md](docs/AUDITORIA_SEGURIDAD.md)
 
 Novedades de cada versión: [CHANGELOG.md](CHANGELOG.md).
@@ -95,10 +95,7 @@ CHANGELOG.md              Qué cambió en cada versión
 
 Guía completa (firewall, Play Protect, instalación por `adb`): [docs/INSTALACION.md](docs/INSTALACION.md). Resumen:
 
-1. En el PC (por usuario, sin administrador), elige una de las dos interfaces (mismo agente, mismos datos):
-   - **Nativa Slint (recomendada, ~8 MB, sin WebView):** `cd desktop-slint`, `cargo build --release` y `powershell -ExecutionPolicy Bypass -File instalar.ps1`.
-   - **Tauri/WebView2:** instala `SyncroUmbral_0.3.0_x64-setup.exe`.
-   Crea la **clave de respaldo** al abrirla.
+1. Descarga de la página de [**Releases**](https://github.com/juandr404/syncroumbral/releases/latest) el `.exe` (PC) y el `.apk` (móvil). En el PC basta ejecutar el `.exe` (no hay que instalar nada; para dejarlo con inicio automático y acceso directo, usa `desktop-slint/instalar.ps1`). Crea la **clave de respaldo** al abrirlo.
 2. Instala `app-release.apk` en el móvil y concede: archivos, acceso a notificaciones, avisos, y (opcional) contestar llamadas y
    mostrar sobre otras apps. La pestaña **Permisos** de la app muestra qué falta.
 3. En el PC: *Móviles y ajustes* → "Mostrar QR de vinculación". En el móvil: "Escanear QR del PC" y confirma que la huella coincide.
