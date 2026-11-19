@@ -194,6 +194,8 @@ SyncroUmbral es software libre bajo la **GNU GPL v3 o posterior** ([LICENSE](LIC
 
 ## Política de firma de código
 
+Página del proyecto: https://juandr404.github.io/syncroumbral/
+
 Los ejecutables de Windows se firmarán con un certificado gratuito de [SignPath Foundation](https://signpath.org/) (pendiente de aprobación). Se compilan en GitHub Actions a partir de este repositorio público (`.github/workflows/build-windows.yml`).
 
 - **Autor y aprobador de las firmas:** el propietario del repositorio ([@juandr404](https://github.com/juandr404)).
