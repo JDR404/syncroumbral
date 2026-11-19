@@ -12,7 +12,7 @@ use std::sync::atomic::AtomicBool;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 use tokio::sync::{mpsc, oneshot};
-use tauri::{AppHandle, Emitter, Runtime};
+use crate::ui::Ui;
 
 pub const PORT: u16 = 47600;
 pub const HB_INTERVAL_MS: u64 = 2000;
@@ -248,7 +248,7 @@ impl Core {
     }
 
     /// Recalcula el bloqueo, limpia si acaba de bloquearse y avisa a la interfaz.
-    pub fn notify<R: Runtime>(&self, h: &AppHandle<R>) {
+    pub fn notify<H: Ui>(&self, h: &H) {
         let (changed_to_locked, snap) = {
             let mut i = self.inner.lock().unwrap();
             let locked = i.locked();
@@ -263,13 +263,13 @@ impl Core {
     }
 
     /// Borra todo rastro de lo que se estaba viendo.
-    fn wipe<R: Runtime>(&self, h: &AppHandle<R>) {
+    fn wipe<H: Ui>(&self, h: &H) {
         self.epoch.fetch_add(1, Ordering::SeqCst);
         self.volatile.lock().unwrap().clear();
         self.clear_notifs(h);
         crate::share::abort_all(self);
         crate::appwin::close_all(&self.app_windows); // las apps del móvil abiertas en el PC se cierran
-        crate::web::close_all(h); // las ventanas web también (la sesión guardada se conserva)
+        h.close_web(); // las ventanas web también (la sesión guardada se conserva)
         let tmp = std::env::temp_dir().join("umbral");
         let _ = std::fs::remove_dir_all(&tmp);
         // Ya no se borran los datos del navegador al bloquear: ocultar lo que se ve lo hace la pantalla de bloqueo, y las
@@ -278,7 +278,7 @@ impl Core {
 
     // ---------- sesiones del móvil ----------
 
-    pub fn begin_session<R: Runtime>(&self, h: &AppHandle<R>, device_name: String) -> u64 {
+    pub fn begin_session<H: Ui>(&self, h: &H, device_name: String) -> u64 {
         let sid = {
             let mut i = self.inner.lock().unwrap();
             let sid = i.next_session;
@@ -303,7 +303,7 @@ impl Core {
         sid
     }
 
-    pub fn end_session<R: Runtime>(&self, h: &AppHandle<R>, sid: u64) {
+    pub fn end_session<H: Ui>(&self, h: &H, sid: u64) {
         let secs;
         {
             let mut i = self.inner.lock().unwrap();
@@ -341,7 +341,7 @@ impl Core {
     }
 
     /// Añade o actualiza una notificación (del móvil o generada aquí) y abre la ventana emergente si no es silenciosa.
-    pub fn push_notif<R: Runtime>(&self, h: &AppHandle<R>, v: &Value) {
+    pub fn push_notif<H: Ui>(&self, h: &H, v: &Value) {
         if v["key"].as_str().is_none() {
             return;
         }
@@ -357,7 +357,7 @@ impl Core {
         }
         let _ = h.emit("notif", serde_json::json!({ "n": v, "popup": popup }));
         if popup {
-            crate::toast::show(h);
+            h.toast_show();
         }
         if v["incoming"] == true {
             crate::ring::start(&self.ringing, self.mute_on_call());
@@ -378,7 +378,7 @@ impl Core {
     }
 
     /// Quita una notificación solo del PC (las generadas aquí, como lo compartido desde el móvil).
-    pub fn remove_local<R: Runtime>(&self, h: &AppHandle<R>, key: &str) {
+    pub fn remove_local<H: Ui>(&self, h: &H, key: &str) {
         self.notifs.lock().unwrap().retain(|x| x["key"] != key);
         let empty = {
             let mut p = self.popups.lock().unwrap();
@@ -387,12 +387,12 @@ impl Core {
         };
         let _ = h.emit("notif_gone", serde_json::json!({ "key": key }));
         if empty {
-            crate::toast::hide(h);
+            h.toast_hide();
         }
     }
 
     /// Quita del PC todo lo compartido desde el móvil (texto y archivos recibidos).
-    pub fn remove_shared<R: Runtime>(&self, h: &AppHandle<R>) {
+    pub fn remove_shared<H: Ui>(&self, h: &H) {
         let keys: Vec<String> = self
             .notifs
             .lock()
@@ -407,7 +407,7 @@ impl Core {
     }
 
     /// Mensaje espontáneo del móvil. Con la app bloqueada se ignora: no se muestra ni se guarda nada.
-    pub fn on_phone_event<R: Runtime>(&self, h: &AppHandle<R>, kind: &str, v: &Value) {
+    pub fn on_phone_event<H: Ui>(&self, h: &H, kind: &str, v: &Value) {
         // Botón "Desbloquear" del móvil (notificación o app): el móvil autenticado y presente es la llave. Va antes de la
         // comprobación de bloqueo porque su función es justo abrir. En el móvil la acción exige tener el teléfono desbloqueado.
         if kind == "unlock_pc" {
@@ -470,7 +470,7 @@ impl Core {
                 let _ = h.emit("notif_gone", serde_json::json!({ "key": key }));
                 self.stop_ring_if_no_incoming_call();
                 if empty {
-                    crate::toast::hide(h);
+                    h.toast_hide();
                 }
             }
             _ => {}
@@ -478,7 +478,7 @@ impl Core {
     }
 
     /// Lista inicial que devuelve el móvil al conectarse (sin ventanas emergentes).
-    pub fn set_notifs<R: Runtime>(&self, h: &AppHandle<R>, r: &Value) {
+    pub fn set_notifs<H: Ui>(&self, h: &H, r: &Value) {
         if self.is_locked() {
             return;
         }
@@ -506,7 +506,7 @@ impl Core {
     /// Sincronización periódica con el móvil: lo que el usuario quitó en el móvil desaparece del PC y lo que falta aparece.
     /// Conserva lo generado en el PC (lo compartido desde el móvil) y no abre ventanas emergentes, salvo para una llamada
     /// entrante que el PC no conocía.
-    pub fn resync_notifs<R: Runtime>(&self, h: &AppHandle<R>, r: &Value) {
+    pub fn resync_notifs<H: Ui>(&self, h: &H, r: &Value) {
         if self.is_locked() || r["items"].as_array().is_none() {
             return;
         }
@@ -546,7 +546,7 @@ impl Core {
             p.retain(|x| x["pkg"] == "umbral.share" || x["key"].as_str().map_or(false, |k| live.contains(&k)));
             if p.is_empty() {
                 drop(p);
-                crate::toast::hide(h);
+                h.toast_hide();
             }
         }
         let _ = h.emit("notif_sync", self.notifs_state());
@@ -594,7 +594,7 @@ impl Core {
     }
 
     /// Silencia una app: se quitan sus notificaciones actuales y no se muestran las futuras.
-    pub fn mute_app<R: Runtime>(&self, h: &AppHandle<R>, pkg: &str, app: &str) {
+    pub fn mute_app<H: Ui>(&self, h: &H, pkg: &str, app: &str) {
         {
             let mut m = self.muted.lock().unwrap();
             m.insert(pkg.to_string(), app.chars().take(80).collect());
@@ -619,18 +619,18 @@ impl Core {
     }
 
     /// Borra todo lo de notificaciones y cierra la ventana emergente.
-    pub fn clear_notifs<R: Runtime>(&self, h: &AppHandle<R>) {
+    pub fn clear_notifs<H: Ui>(&self, h: &H) {
         self.notifs.lock().unwrap().clear();
         self.popups.lock().unwrap().clear();
         crate::ring::stop(&self.ringing);
         *self.notif_granted.lock().unwrap() = None;
         let _ = h.emit("notif_clear", ());
-        crate::toast::hide(h);
+        h.toast_hide();
     }
 
-    pub fn clear_popups<R: Runtime>(&self, h: &AppHandle<R>) {
+    pub fn clear_popups<H: Ui>(&self, h: &H) {
         self.popups.lock().unwrap().clear();
-        crate::toast::hide(h);
+        h.toast_hide();
     }
 
     // ---------- peticiones al móvil ----------

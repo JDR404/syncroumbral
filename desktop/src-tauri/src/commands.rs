@@ -3,24 +3,13 @@
 use crate::core::{Core, Snapshot, PORT};
 use crate::adb;
 use crate::transfer::{self, Item};
-use qrcode::render::svg;
-use qrcode::QrCode;
-use serde::Serialize;
 use serde_json::{json, Value};
-use std::net::IpAddr;
 use std::sync::Arc;
 use tauri::{AppHandle, State};
 
 type Shared<'a> = State<'a, Arc<Core>>;
 
-#[derive(Serialize)]
-pub struct PairingInfo {
-    payload: String,
-    qr_svg: String,
-    expires_secs: u64,
-    /// Huella corta del certificado ("ab12-cd34-ef56") para compararla con la que muestra el móvil al confirmar.
-    fp_short: String,
-}
+pub use crate::api::{ensure_unlocked, LocalListing, PairingInfo};
 
 #[tauri::command]
 pub fn get_state(core: Shared) -> Snapshot {
@@ -49,42 +38,7 @@ pub fn lock(h: AppHandle, core: Shared) {
 
 #[tauri::command]
 pub fn pairing_info(core: Shared) -> Result<PairingInfo, String> {
-    if core.is_locked() {
-        return Err("Desbloquea la aplicación primero".into());
-    }
-    let hosts: Vec<String> = local_ip_address::list_afinet_netifas()
-        .unwrap_or_default()
-        .into_iter()
-        .filter_map(|(_, ip)| match ip {
-            IpAddr::V4(v4) if !v4.is_loopback() && !v4.is_link_local() => Some(v4.to_string()),
-            _ => None,
-        })
-        .collect();
-    let name = std::env::var("COMPUTERNAME").unwrap_or_else(|_| "PC".into());
-    let payload = json!({
-        "v": 1,
-        "name": name,
-        "hosts": hosts,
-        "port": PORT,
-        "fp": core.tls_fp,
-        "tok": core.new_token(),
-    })
-    .to_string();
-    let qr_svg = QrCode::new(payload.as_bytes())
-        .map_err(|e| e.to_string())?
-        .render::<svg::Color>()
-        .min_dimensions(260, 260)
-        .quiet_zone(true)
-        .build();
-    let fp_short = core
-        .tls_fp
-        .as_bytes()
-        .chunks(4)
-        .take(3)
-        .map(|c| String::from_utf8_lossy(c).into_owned())
-        .collect::<Vec<_>>()
-        .join("-");
-    Ok(PairingInfo { payload, qr_svg, expires_secs: 300, fp_short })
+    crate::api::pairing_info(&core)
 }
 
 #[tauri::command]
@@ -98,30 +52,6 @@ pub fn remove_device(h: AppHandle, core: Shared, id: String) -> Result<(), Strin
 }
 
 // ---------------------------------------------------------------- archivos
-
-#[derive(Serialize)]
-pub struct Entry {
-    name: String,
-    dir: bool,
-    size: u64,
-    mtime: u64,
-}
-
-#[derive(Serialize)]
-pub struct LocalListing {
-    path: String,
-    /// Carpeta superior; "" = lista de unidades; None = ya estamos en la lista de unidades.
-    parent: Option<String>,
-    items: Vec<Entry>,
-}
-
-fn ensure_unlocked(core: &Core) -> Result<(), String> {
-    if core.is_locked() {
-        Err("La aplicación está bloqueada".into())
-    } else {
-        Ok(())
-    }
-}
 
 #[tauri::command]
 pub fn local_home(core: Shared) -> Result<String, String> {
@@ -138,52 +68,13 @@ pub fn local_places(core: Shared) -> Result<Vec<crate::places::Place>, String> {
 
 #[tauri::command]
 pub fn local_ls(core: Shared, path: String) -> Result<LocalListing, String> {
-    ensure_unlocked(&core)?;
-    if path.is_empty() {
-        let items = ('A'..='Z')
-            .filter(|c| std::path::Path::new(&format!("{c}:\\")).exists())
-            .map(|c| Entry { name: format!("{c}:"), dir: true, size: 0, mtime: 0 })
-            .collect();
-        return Ok(LocalListing { path, parent: None, items });
-    }
-    let p = std::path::Path::new(&path);
-    let mut items: Vec<Entry> = std::fs::read_dir(p)
-        .map_err(|e| format!("No se puede abrir la carpeta: {e}"))?
-        .flatten()
-        .filter_map(|e| {
-            let md = e.metadata().ok()?;
-            Some(Entry {
-                name: e.file_name().to_string_lossy().into_owned(),
-                dir: md.is_dir(),
-                size: if md.is_dir() { 0 } else { md.len() },
-                mtime: md
-                    .modified()
-                    .ok()
-                    .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
-                    .map_or(0, |d| d.as_millis() as u64),
-            })
-        })
-        .collect();
-    items.sort_by(|a, b| b.dir.cmp(&a.dir).then(a.name.to_lowercase().cmp(&b.name.to_lowercase())));
-    let parent = Some(p.parent().map(|x| x.to_string_lossy().into_owned()).unwrap_or_default());
-    Ok(LocalListing { path, parent, items })
+    crate::api::local_ls(&core, path)
 }
 
 /// Convierte rutas del PC (por ejemplo soltadas desde el Explorador) en elementos para transferir.
 #[tauri::command]
 pub fn local_stat(core: Shared, paths: Vec<String>) -> Result<Vec<Item>, String> {
-    ensure_unlocked(&core)?;
-    Ok(paths
-        .into_iter()
-        .filter_map(|p| {
-            let md = std::fs::symlink_metadata(&p).ok()?;
-            if md.file_type().is_symlink() {
-                return None;
-            }
-            let name = std::path::Path::new(&p).file_name()?.to_string_lossy().into_owned();
-            Some(Item { path: p, name, dir: md.is_dir(), size: if md.is_dir() { 0 } else { md.len() } })
-        })
-        .collect())
+    crate::api::local_stat(&core, paths)
 }
 
 #[tauri::command]

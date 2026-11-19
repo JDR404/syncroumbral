@@ -12,7 +12,7 @@ use sha2::{Digest, Sha256};
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
-use tauri::{AppHandle, Runtime};
+use crate::ui::Ui;
 use tokio::net::{TcpListener, TcpStream};
 use tokio::sync::{mpsc, oneshot};
 use tokio::time::timeout;
@@ -24,7 +24,7 @@ type Ws = WebSocketStream<tokio_rustls::server::TlsStream<TcpStream>>;
 
 const HANDSHAKE_STEP: Duration = Duration::from_secs(5);
 
-pub async fn run<R: Runtime>(h: AppHandle<R>, core: Arc<Core>, tls: Arc<rustls::ServerConfig>) {
+pub async fn run<H: Ui>(h: H, core: Arc<Core>, tls: Arc<rustls::ServerConfig>) {
     let listener = match TcpListener::bind(("0.0.0.0", PORT)).await {
         Ok(l) => l,
         Err(e) => {
@@ -35,7 +35,7 @@ pub async fn run<R: Runtime>(h: AppHandle<R>, core: Arc<Core>, tls: Arc<rustls::
     serve(h, core, TlsAcceptor::from(tls), listener).await;
 }
 
-async fn serve<R: Runtime>(h: AppHandle<R>, core: Arc<Core>, acceptor: TlsAcceptor, listener: TcpListener) {
+async fn serve<H: Ui>(h: H, core: Arc<Core>, acceptor: TlsAcceptor, listener: TcpListener) {
     loop {
         let Ok((tcp, peer)) = listener.accept().await else { continue };
         // Sin plaza (demasiadas conexiones sin autenticar, u origen bloqueado por fallos) se corta antes de gastar TLS.
@@ -64,8 +64,8 @@ fn key_id(der: &[u8]) -> String {
 }
 
 /// Handshake completo (pair opcional, hello, reto-respuesta). Devuelve el dispositivo autenticado o None.
-async fn authenticate<R: Runtime>(
-    h: &AppHandle<R>,
+async fn authenticate<H: Ui>(
+    h: &H,
     core: &Arc<Core>,
     ws: &mut Ws,
     ip: std::net::IpAddr,
@@ -136,8 +136,8 @@ async fn recv_small(ws: &mut Ws, wait: Duration) -> Result<Value> {
     }
 }
 
-async fn session<R: Runtime>(
-    h: &AppHandle<R>,
+async fn session<H: Ui>(
+    h: &H,
     core: &Arc<Core>,
     tcp: TcpStream,
     acceptor: TlsAcceptor,

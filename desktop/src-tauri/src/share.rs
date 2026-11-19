@@ -8,7 +8,7 @@ use serde_json::{json, Value};
 use std::fs::File;
 use std::io::Write;
 use std::path::PathBuf;
-use tauri::{AppHandle, Runtime};
+use crate::ui::Ui;
 
 const MAX_TEXT: usize = 100_000;
 /// Límites de lo que el móvil puede dejar en el PC sin que nadie lo pida desde el PC.
@@ -64,7 +64,7 @@ fn fmt_size(n: u64) -> String {
     format!("{:.1} {}", x, units[i])
 }
 
-pub fn handle<R: Runtime>(core: &Core, h: &AppHandle<R>, kind: &str, v: &Value) {
+pub fn handle<H: Ui>(core: &Core, h: &H, kind: &str, v: &Value) {
     match kind {
         "share_text" => {
             let text: String = v["text"].as_str().unwrap_or("").chars().take(MAX_TEXT).collect();
@@ -79,7 +79,7 @@ pub fn handle<R: Runtime>(core: &Core, h: &AppHandle<R>, kind: &str, v: &Value) 
     }
 }
 
-fn begin<R: Runtime>(core: &Core, h: &AppHandle<R>, v: &Value) {
+fn begin<H: Ui>(core: &Core, h: &H, v: &Value) {
     let (Some(id), Some(size)) = (v["id"].as_u64(), v["size"].as_u64()) else { return };
     if size > MAX_FILE {
         core.push_notif(h, &item(format!("share-{id}"), "Archivo demasiado grande", "El límite es 2 GB.".into(), json!({})));
@@ -133,7 +133,7 @@ fn chunk(core: &Core, v: &Value) {
     }
 }
 
-fn end<R: Runtime>(core: &Core, h: &AppHandle<R>, v: &Value) {
+fn end<H: Ui>(core: &Core, h: &H, v: &Value) {
     let Some(id) = v["id"].as_u64() else { return };
     let Some(inc) = core.shares.lock().unwrap().remove(&id) else { return };
     let Incoming { mut file, path, final_path, name, size, written } = inc;
