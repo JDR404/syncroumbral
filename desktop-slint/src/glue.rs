@@ -26,6 +26,7 @@ struct Row {
 
 #[derive(Default)]
 struct PaneState {
+    filter: String,
     path: String,
     parent: Option<String>,
     rows: Vec<Row>,
@@ -103,6 +104,9 @@ impl Ui for SlintUi {
         match event {
             "state" => ctx.push_state(),
             "notif" | "notif_gone" | "notif_sync" | "notif_clear" => {
+                if event == "notif" && v["n"]["clip"] == true {
+                    ctx.auto_clip(v["n"]["text"].as_str().unwrap_or("").to_string());
+                }
                 ctx.push_notifs();
                 ctx.refresh_toast();
             }
@@ -476,19 +480,27 @@ impl Ctx {
         let (items, path, footer) = {
             let f = self.files.lock().unwrap();
             let p = if phone { &f.phone } else { &f.pc };
-            let items: Vec<FileItem> = p
-                .rows
+            let vis = p.visible();
+            let items: Vec<FileItem> = vis
                 .iter()
-                .zip(&p.sel)
-                .map(|(r, &sel)| FileItem {
-                    name: r.name.clone().into(),
-                    meta: if r.dir { String::new() } else { format!("{}  {}", fmt_size(r.size), fmt_date(r.mtime)) }.into(),
-                    dir: r.dir,
-                    selected: sel,
+                .map(|&k| {
+                    let r = &p.rows[k];
+                    FileItem {
+                        name: r.name.clone().into(),
+                        meta: if r.dir { String::new() } else { format!("{}  {}", fmt_size(r.size), fmt_date(r.mtime)) }.into(),
+                        dir: r.dir,
+                        selected: p.sel[k],
+                    }
                 })
                 .collect();
             let count = p.sel.iter().filter(|s| **s).count();
-            let footer = if count > 0 { format!("{count} seleccionado(s)") } else { format!("{} elementos", p.rows.len()) };
+            let footer = if count > 0 {
+                format!("{count} marcado(s)")
+            } else if vis.len() != p.rows.len() {
+                format!("{} de {} elementos", vis.len(), p.rows.len())
+            } else {
+                format!("{} elementos", p.rows.len())
+            };
             (items, p.path.clone(), footer)
         };
         let shown = if phone {
@@ -524,11 +536,13 @@ impl Ctx {
                 Ok(l) => {
                     {
                         let mut f = me.files.lock().unwrap();
+                        f.pc.filter.clear();
                         f.pc.rows = l.items.iter().filter(|e| !e.name.starts_with('.')).map(|e| Row { name: e.name.clone(), dir: e.dir, size: e.size, mtime: e.mtime }).collect();
                         f.pc.sel = vec![false; f.pc.rows.len()];
                         f.pc.path = l.path;
                         f.pc.parent = l.parent;
                     }
+                    me.ui(|w| w.set_pc_filter("".into()));
                     me.apply_files(false);
                 }
                 Err(e) => me.ui(move |w| w.set_pc_message(e.into())),
@@ -561,11 +575,13 @@ impl Ctx {
                     let free = r["free"].as_u64();
                     {
                         let mut f = me.files.lock().unwrap();
+                        f.phone.filter.clear();
                         f.phone.sel = vec![false; rows.len()];
                         f.phone.rows = rows;
                         f.phone.parent = if p.is_empty() { None } else { Some(p.rfind('/').map_or(String::new(), |i| p[..i].to_string())) };
                         f.phone.path = p;
                     }
+                    me.ui(|w| w.set_phone_filter("".into()));
                     me.apply_files(true);
                     if let Some(fr) = free {
                         me.ui(move |w| {
@@ -833,9 +849,16 @@ impl Ctx {
     // ---------------------------------------------------------------- mensajería (Edge aislado)
 
     fn services(&self) -> Vec<ServiceItem> {
-        crate::services::SERVICES
-            .iter()
-            .map(|s| ServiceItem { id: s.id.into(), name: s.name.into(), has_session: self.core.dir.join("web-edge").join(s.id).exists() })
+        self.all_services()
+            .into_iter()
+            .map(|s| ServiceItem {
+                has_session: self.core.dir.join("web-edge").join(&s.id).exists(),
+                initial: s.name.chars().next().map(|c| c.to_uppercase().to_string()).unwrap_or_else(|| "?".into()).into(),
+                id: s.id.into(),
+                name: s.name.into(),
+                url: s.url.into(),
+                custom: s.custom,
+            })
             .collect()
     }
 
@@ -848,13 +871,13 @@ impl Ctx {
     }
 
     fn web_open(self: &Arc<Self>, idx: usize) {
-        let Some(s) = crate::services::SERVICES.get(idx) else { return };
+        let Some(s) = self.all_services().into_iter().nth(idx) else { return };
         if self.core.is_locked() {
             return;
         }
         {
             let mut map = self.edge.lock().unwrap();
-            if let Some(ch) = map.get_mut(s.id) {
+            if let Some(ch) = map.get_mut(&s.id) {
                 if matches!(ch.try_wait(), Ok(None)) {
                     drop(map);
                     self.status(format!("{} ya está abierto", s.name));
@@ -866,7 +889,7 @@ impl Ctx {
             self.status("No se encontró Microsoft Edge en este PC");
             return;
         };
-        let profile = self.core.dir.join("web-edge").join(s.id);
+        let profile = self.core.dir.join("web-edge").join(&s.id);
         let _ = std::fs::create_dir_all(&profile);
         match std::process::Command::new(exe)
             .arg(format!("--app={}", s.url))
@@ -875,7 +898,7 @@ impl Ctx {
             .spawn()
         {
             Ok(ch) => {
-                self.edge.lock().unwrap().insert(s.id.to_string(), ch);
+                self.edge.lock().unwrap().insert(s.id.clone(), ch);
                 let list = self.services();
                 self.ui(move |w| w.set_services(model(list)));
             }
@@ -897,11 +920,11 @@ impl Ctx {
     }
 
     fn web_forget(self: &Arc<Self>, idx: usize) {
-        let Some(s) = crate::services::SERVICES.get(idx) else { return };
-        if let Some(mut c) = self.edge.lock().unwrap().remove(s.id) {
+        let Some(s) = self.all_services().into_iter().nth(idx) else { return };
+        if let Some(mut c) = self.edge.lock().unwrap().remove(&s.id) {
             Self::kill_tree(&mut c);
         }
-        let _ = std::fs::remove_dir_all(self.core.dir.join("web-edge").join(s.id));
+        let _ = std::fs::remove_dir_all(self.core.dir.join("web-edge").join(&s.id));
         let list = self.services();
         self.ui(move |w| w.set_services(model(list)));
         self.status(format!("Sesión de {} olvidada", s.name));
@@ -1001,8 +1024,8 @@ pub fn wire(win: &AppWindow, ctx: &Arc<Ctx>) {
         {
             let mut f = c.files.lock().unwrap();
             let p = if phone { &mut f.phone } else { &mut f.pc };
-            if let Some(s) = p.sel.get_mut(i as usize) {
-                *s = !*s;
+            if let Some(k) = p.visible().get(i as usize).copied() {
+                p.sel[k] = !p.sel[k];
             }
         }
         c.apply_files(phone);
@@ -1012,7 +1035,7 @@ pub fn wire(win: &AppWindow, ctx: &Arc<Ctx>) {
         let target = {
             let f = c.files.lock().unwrap();
             let p = if phone { &f.phone } else { &f.pc };
-            p.rows.get(i as usize).filter(|r| r.dir).map(|r| if phone { join_phone(&p.path, &r.name) } else { join_pc(&p.path, &r.name) })
+            p.visible().get(i as usize).and_then(|&k| p.rows.get(k)).filter(|r| r.dir).map(|r| if phone { join_phone(&p.path, &r.name) } else { join_pc(&p.path, &r.name) })
         };
         if let Some(t) = target {
             if phone { c.load_phone(Some(t)) } else { c.load_pc(Some(t)) }
@@ -1163,6 +1186,7 @@ pub fn wire(win: &AppWindow, ctx: &Arc<Ctx>) {
     win.on_copy_code(move |code| c.copy_code(code.to_string()));
 
     wire_extras(win, ctx);
+    wire_files_extra(win, ctx);
     wire_more(win, ctx);
     wire_sms(win, ctx);
 
@@ -1191,6 +1215,14 @@ pub fn wire(win: &AppWindow, ctx: &Arc<Ctx>) {
                 });
             });
         }
+        Err(e) => c.status(e),
+    });
+    let c = ctx.clone();
+    win.on_copy_pairing(move || match crate::api::pairing_info(&c.core) {
+        Ok(info) => match arboard::Clipboard::new().and_then(|mut cb| cb.set_text(info.payload)) {
+            Ok(()) => c.status("Código de vinculación copiado: pégalo en «Vincular con el código» de la app del móvil (vale 5 minutos)"),
+            Err(e) => c.status(format!("No se pudo copiar: {e}")),
+        },
         Err(e) => c.status(e),
     });
     let c = ctx.clone();
@@ -1516,10 +1548,24 @@ struct Settings {
     /// Instante (ms) en que se activó la copia de fotos: solo se copian las posteriores.
     backup_since: u64,
     backed_up: Vec<String>,
+    custom_services: Vec<CustomService>,
 }
 
+/// Los ajustes de la interfaz van en `ui-settings.json`. `settings.json` es del agente (sellado con firma): la 0.4.0 escribía aquí por error
+/// y se pisaban entre sí; si queda un archivo de esa época se migra y se retira para que el agente arranque limpio.
 fn load_settings(dir: &std::path::Path) -> Settings {
-    std::fs::read_to_string(dir.join("settings.json")).ok().and_then(|t| serde_json::from_str(&t).ok()).unwrap_or_default()
+    let new = dir.join("ui-settings.json");
+    let old = dir.join("settings.json");
+    if let Ok(t) = std::fs::read_to_string(&old) {
+        if t.contains("\"lock_windows\"") {
+            if !new.exists() {
+                let _ = std::fs::write(&new, &t);
+            }
+            let _ = std::fs::remove_file(&old);
+            let _ = std::fs::remove_file(dir.join("settings.json.sig"));
+        }
+    }
+    std::fs::read_to_string(&new).ok().and_then(|t| serde_json::from_str(&t).ok()).unwrap_or_default()
 }
 
 fn now_ms() -> u64 {
@@ -1530,6 +1576,21 @@ fn now_ms() -> u64 {
 pub fn matches_mute(words: &str, title: &str, text: &str) -> bool {
     let hay = format!("{title} {text}").to_lowercase();
     words.split(',').map(|w| w.trim().to_lowercase()).any(|w| !w.is_empty() && hay.contains(&w))
+}
+
+/// Clave pública con la que se firman las publicaciones (la privada vive fuera del repositorio; ver tools/release-sign).
+const UPDATE_PUBKEY: &str = "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEQZm3UR1eoau29Dz8aMS4dggO8d48L9zrVymDRyeDrjEjOXvbgo7v1EuAYGwp9VbxXcHCHnv65JG7MvidM3Iqvg==";
+
+/// ¿`sig_b64` (ECDSA P-256 SHA-256, DER en base64) es una firma válida de `data` con la clave pública `pub_b64`?
+pub fn verify_sig(pub_b64: &str, data: &[u8], sig_b64: &str) -> bool {
+    use base64::Engine;
+    use p256::ecdsa::{signature::Verifier, Signature, VerifyingKey};
+    use p256::pkcs8::DecodePublicKey;
+    let b = base64::engine::general_purpose::STANDARD;
+    let Ok(pk) = b.decode(pub_b64.trim()) else { return false };
+    let Ok(sg) = b.decode(sig_b64.trim()) else { return false };
+    let (Ok(key), Ok(sig)) = (VerifyingKey::from_public_key_der(&pk), Signature::from_der(&sg)) else { return false };
+    key.verify(data, &sig).is_ok()
 }
 
 fn version_tuple(v: &str) -> Vec<u32> {
@@ -1561,7 +1622,7 @@ impl Ctx {
     fn save_settings(&self) {
         let s = self.settings.lock().unwrap().clone();
         if let Ok(t) = serde_json::to_string_pretty(&s) {
-            let _ = std::fs::write(self.core.dir.join("settings.json"), t);
+            let _ = std::fs::write(self.core.dir.join("ui-settings.json"), t);
         }
     }
 
@@ -1689,7 +1750,7 @@ impl Ctx {
             loop {
                 let m2 = me.clone();
                 let found = tokio::task::spawn_blocking(move || m2.check_update()).await.ok().flatten();
-                if let Some((ver, _, _)) = found {
+                if let Some((ver, _, _, _)) = found {
                     me.ui(move |w| w.set_update_text(format!("Hay una versión nueva de SyncroUmbral: {ver}").into()));
                 }
                 tokio::time::sleep(Duration::from_secs(6 * 3600)).await;
@@ -1698,7 +1759,7 @@ impl Ctx {
     }
 
     /// (versión, url del exe, url de SHA256SUMS) de la última versión publicada si es más nueva que la instalada.
-    fn check_update(&self) -> Option<(String, String, String)> {
+    fn check_update(&self) -> Option<(String, String, String, String)> {
         let r: Value = ureq::get("https://api.github.com/repos/juandr404/syncroumbral/releases?per_page=1")
             .set("User-Agent", "SyncroUmbral")
             .timeout(Duration::from_secs(15))
@@ -1718,7 +1779,7 @@ impl Ctx {
                 (n.ends_with(suffix) && u.starts_with("https://github.com/juandr404/syncroumbral/releases/download/")).then(|| u.to_string())
             })
         };
-        Some((tag.trim_start_matches('v').to_string(), find("windows-x64.exe")?, find("SHA256SUMS.txt")?))
+        Some((tag.trim_start_matches('v').to_string(), find("windows-x64.exe")?, find("SHA256SUMS.txt")?, find("SHA256SUMS.txt.sig")?))
     }
 
     /// Descarga la versión nueva, comprueba su huella SHA-256 contra la de la misma publicación, reemplaza el ejecutable y lo reinicia.
@@ -1727,14 +1788,20 @@ impl Ctx {
         self.status("Descargando la actualización...");
         self.rt.spawn_blocking(move || {
             let r = (|| -> Result<(), String> {
-                let (_, exe_url, sums_url) = me.check_update().ok_or("Ya tienes la última versión")?;
+                let (_, exe_url, sums_url, sig_url) = me.check_update().ok_or("Ya tienes la última versión (o la publicación no está firmada)")?;
                 let get = |u: &str| -> Result<Vec<u8>, String> {
                     let mut v = Vec::new();
                     let resp = ureq::get(u).set("User-Agent", "SyncroUmbral").timeout(Duration::from_secs(300)).call().map_err(|e| e.to_string())?;
                     std::io::Read::read_to_end(&mut std::io::Read::take(resp.into_reader(), 100 << 20), &mut v).map_err(|e| e.to_string())?;
                     Ok(v)
                 };
-                let sums = String::from_utf8(get(&sums_url)?).map_err(|e| e.to_string())?;
+                let sums_raw = get(&sums_url)?;
+                let sig = String::from_utf8(get(&sig_url)?).map_err(|e| e.to_string())?;
+                // La lista de huellas debe venir firmada con la clave del autor: una cuenta de GitHub comprometida no basta.
+                if !verify_sig(UPDATE_PUBKEY, &sums_raw, &sig) {
+                    return Err("La firma de la actualización no es válida: no se instala".into());
+                }
+                let sums = String::from_utf8(sums_raw).map_err(|e| e.to_string())?;
                 let bin = get(&exe_url)?;
                 let name = exe_url.rsplit('/').next().unwrap_or("");
                 let want = sums.lines().find_map(|l| {
@@ -1808,6 +1875,24 @@ pub fn wire_extras(win: &AppWindow, ctx: &Arc<Ctx>) {
 #[cfg(test)]
 mod extras_tests {
     use super::*;
+
+    #[test]
+    fn update_signatures_are_checked() {
+        use base64::Engine;
+        use p256::ecdsa::{signature::Signer, Signature, SigningKey};
+        use p256::pkcs8::EncodePublicKey;
+        let b = base64::engine::general_purpose::STANDARD;
+        let key = SigningKey::random(&mut rand::rngs::OsRng);
+        let pubk = b.encode(key.verifying_key().to_public_key_der().unwrap().as_bytes());
+        let sig: Signature = key.sign(b"hash  archivo");
+        let sig = b.encode(sig.to_der().as_bytes());
+        assert!(verify_sig(&pubk, b"hash  archivo", &sig));
+        assert!(!verify_sig(&pubk, b"hash  archivo MODIFICADO", &sig), "un texto cambiado no vale");
+        let otra = SigningKey::random(&mut rand::rngs::OsRng);
+        let otra_pub = b.encode(otra.verifying_key().to_public_key_der().unwrap().as_bytes());
+        assert!(!verify_sig(&otra_pub, b"hash  archivo", &sig), "otra clave no vale");
+        assert!(!verify_sig(UPDATE_PUBKEY, b"x", "basura"));
+    }
 
     #[test]
     fn mute_words_and_versions() {
@@ -2054,4 +2139,130 @@ pub fn wire_more(win: &AppWindow, ctx: &Arc<Ctx>) {
         c.apply_apps(false);
         c.fetch_missing_icons();
     });
+}
+
+// ------------------------------------------------------------------------------------------------ servicios propios y lista visible
+
+#[derive(Serialize, serde::Deserialize, Clone)]
+struct CustomService {
+    id: String,
+    name: String,
+    url: String,
+}
+
+#[derive(Clone)]
+struct SvcView {
+    id: String,
+    name: String,
+    url: String,
+    custom: bool,
+}
+
+impl PaneState {
+    /// Posiciones de `rows` que se ven con el filtro actual (sin distinguir mayúsculas).
+    fn visible(&self) -> Vec<usize> {
+        let f = self.filter.to_lowercase();
+        (0..self.rows.len()).filter(|&i| f.is_empty() || self.rows[i].name.to_lowercase().contains(&f)).collect()
+    }
+}
+
+/// Dirección https válida para abrir como servicio: sin espacios ni comillas (se pasa a Edge como argumento).
+fn valid_service_url(u: &str) -> bool {
+    let u = u.trim();
+    let Some(rest) = u.strip_prefix("https://") else { return false };
+    let host = rest.split(['/', '?', '#']).next().unwrap_or("");
+    u.len() <= 300 && !host.is_empty() && host.contains('.') && !u.chars().any(|c| c.is_whitespace() || c == '"' || c == '\'' || c.is_control())
+}
+
+impl Ctx {
+    fn all_services(&self) -> Vec<SvcView> {
+        let mut v: Vec<SvcView> = crate::services::SERVICES
+            .iter()
+            .map(|s| SvcView { id: s.id.into(), name: s.name.into(), url: s.url.into(), custom: false })
+            .collect();
+        v.extend(self.settings.lock().unwrap().custom_services.iter().map(|c| SvcView { id: c.id.clone(), name: c.name.clone(), url: c.url.clone(), custom: true }));
+        v
+    }
+
+    fn add_service(self: &Arc<Self>, name: String, url: String) {
+        let (name, url) = (name.trim().to_string(), url.trim().to_string());
+        if name.is_empty() || name.chars().count() > 40 {
+            self.status("Ponle un nombre (hasta 40 letras)");
+            return;
+        }
+        if !valid_service_url(&url) {
+            self.status("La dirección debe empezar por https:// y ser una web válida");
+            return;
+        }
+        {
+            let mut s = self.settings.lock().unwrap();
+            if s.custom_services.len() >= 20 {
+                drop(s);
+                self.status("Ya tienes 20 servicios propios: quita alguno antes");
+                return;
+            }
+            let slug: String = name.to_lowercase().chars().map(|c| if c.is_ascii_alphanumeric() { c } else { '-' }).collect();
+            let mut id = format!("c-{slug}");
+            let mut n = 2;
+            while crate::services::SERVICES.iter().any(|x| x.id == id) || s.custom_services.iter().any(|x| x.id == id) {
+                id = format!("c-{slug}-{n}");
+                n += 1;
+            }
+            s.custom_services.push(CustomService { id, name: name.clone(), url });
+        }
+        self.save_settings();
+        let list = self.services();
+        self.ui(move |w| w.set_services(model(list)));
+        self.status(format!("{name} añadido"));
+    }
+
+    fn remove_service(self: &Arc<Self>, idx: usize) {
+        let Some(s) = self.all_services().into_iter().nth(idx).filter(|s| s.custom) else { return };
+        if let Some(mut c) = self.edge.lock().unwrap().remove(&s.id) {
+            Self::kill_tree(&mut c);
+        }
+        let _ = std::fs::remove_dir_all(self.core.dir.join("web-edge").join(&s.id));
+        self.settings.lock().unwrap().custom_services.retain(|x| x.id != s.id);
+        self.save_settings();
+        let list = self.services();
+        self.ui(move |w| w.set_services(model(list)));
+        self.status(format!("{} quitado", s.name));
+    }
+
+    /// Texto recibido con «Copiar al PC» del móvil: se deja directamente en el portapapeles del PC.
+    fn auto_clip(self: &Arc<Self>, text: String) {
+        match arboard::Clipboard::new().and_then(|mut c| c.set_text(text)) {
+            Ok(()) => self.status("Portapapeles del móvil copiado: ya puedes pegar"),
+            Err(e) => self.status(format!("No se pudo copiar al portapapeles del PC: {e}")),
+        }
+    }
+}
+
+pub fn wire_files_extra(win: &AppWindow, ctx: &Arc<Ctx>) {
+    let c = ctx.clone();
+    win.on_pane_filter(move |phone, t| {
+        {
+            let mut f = c.files.lock().unwrap();
+            let p = if phone { &mut f.phone } else { &mut f.pc };
+            p.filter = t.to_string();
+        }
+        c.apply_files(phone);
+    });
+    let c = ctx.clone();
+    win.on_pane_select_all(move |phone| {
+        {
+            let mut f = c.files.lock().unwrap();
+            let p = if phone { &mut f.phone } else { &mut f.pc };
+            let vis = p.visible();
+            let all = !vis.is_empty() && vis.iter().all(|&k| p.sel[k]);
+            for k in vis {
+                p.sel[k] = !all;
+            }
+        }
+        c.apply_files(phone);
+    });
+    let c = ctx.clone();
+    win.on_add_service(move |n, u| c.add_service(n.to_string(), u.to_string()));
+    let c = ctx.clone();
+    win.on_remove_service(move |i| c.remove_service(i as usize));
 }

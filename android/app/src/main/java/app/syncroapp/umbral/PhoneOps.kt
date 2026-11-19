@@ -75,6 +75,7 @@ object PhoneOps {
 
     private fun dial(ctx: Context, number: String): JSONObject {
         need(ctx, android.Manifest.permission.CALL_PHONE, "Llamar")
+        RateLimit.check("dial", 6, 10 * 60_000L, "llamadas")
         require(NUMBER.matches(number)) { "Número no válido" }
         val tm = ctx.getSystemService(Context.TELECOM_SERVICE) as TelecomManager
         @Suppress("MissingPermission")

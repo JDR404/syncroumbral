@@ -38,6 +38,11 @@ pub async fn run<H: Ui>(h: H, core: Arc<Core>, tls: Arc<rustls::ServerConfig>) {
 async fn serve<H: Ui>(h: H, core: Arc<Core>, acceptor: TlsAcceptor, listener: TcpListener) {
     loop {
         let Ok((tcp, peer)) = listener.accept().await else { continue };
+        // Solo se atiende a la red local (privada, enlace local, Tailscale/CGNAT o el propio equipo): una conexión desde una
+        // dirección pública no tiene nada que hacer aquí y se corta antes de gastar TLS.
+        if !is_lan(peer.ip()) {
+            continue;
+        }
         // Sin plaza (demasiadas conexiones sin autenticar, u origen bloqueado por fallos) se corta antes de gastar TLS.
         let Some(permit) = core.limits.enter(peer.ip()) else { continue };
         let (h, core, acceptor) = (h.clone(), core.clone(), acceptor.clone());
@@ -185,7 +190,10 @@ async fn session<H: Ui>(
         });
     }
     let on_msg = |kind: &str, v: &Value| core.on_phone_event(h, kind, v);
-    let result = session_loop(&mut ws, core.hb_timeout, &mut rx, &on_msg).await;
+    // Si el usuario quita el móvil de la lista mientras está conectado, la sesión se corta en el siguiente latido.
+    let dev_id = device.id.clone();
+    let alive = || core.find_device(&dev_id).is_some();
+    let result = session_loop(&mut ws, core.hb_timeout, &mut rx, &on_msg, &alive).await;
     core.detach_phone(sid);
     core.end_session(h, sid);
     result
@@ -225,6 +233,7 @@ async fn session_loop(
     hb_timeout: Duration,
     rx: &mut mpsc::Receiver<PhoneCmd>,
     on_msg: &(dyn Fn(&str, &Value) + Send + Sync),
+    alive: &(dyn Fn() -> bool + Send + Sync),
 ) -> Result<()> {
     let mut last_hb = Instant::now();
     let mut pending: HashMap<u64, oneshot::Sender<Result<Value, String>>> = HashMap::new();
@@ -257,6 +266,10 @@ async fn session_loop(
                     match v["t"].as_str() {
                         // Solo un latido válido reinicia el plazo (los ping/pong del transporte no cuentan).
                         Some("hb") => {
+                            if !alive() {
+                                let _ = send(ws, json!({"t": "error", "msg": "dispositivo no vinculado"})).await;
+                                return Ok(());
+                            }
                             last_hb = Instant::now();
                             send(ws, json!({"t": "ack", "seq": v["seq"]})).await?;
                         }
@@ -286,3 +299,33 @@ async fn session_loop(
 #[cfg(all(test, not(feature = "slint-ui")))]
 #[path = "server_tests.rs"]
 mod tests;
+
+/// ¿Origen de la red local? (RFC 1918, enlace local, CGNAT 100.64/10 usado por Tailscale, bucle local y equivalentes IPv6.)
+pub fn is_lan(ip: std::net::IpAddr) -> bool {
+    use std::net::IpAddr;
+    match ip {
+        IpAddr::V4(v) => {
+            let o = v.octets();
+            v.is_private() || v.is_loopback() || v.is_link_local() || (o[0] == 100 && (o[1] & 0xC0) == 64)
+        }
+        IpAddr::V6(v) => {
+            let s = v.segments();
+            v.is_loopback() || (s[0] & 0xfe00) == 0xfc00 || (s[0] & 0xffc0) == 0xfe80
+        }
+    }
+}
+
+#[cfg(test)]
+mod lan_tests {
+    use super::is_lan;
+
+    #[test]
+    fn only_local_networks_are_served() {
+        for ok in ["192.168.1.9", "10.0.0.2", "172.20.1.1", "127.0.0.1", "169.254.3.4", "100.100.1.1", "::1", "fd12::1", "fe80::1"] {
+            assert!(is_lan(ok.parse().unwrap()), "{ok} debe ser red local");
+        }
+        for bad in ["8.8.8.8", "172.32.0.1", "100.128.0.1", "2001:4860:4860::8888", "203.0.113.5"] {
+            assert!(!is_lan(bad.parse().unwrap()), "{bad} no es red local");
+        }
+    }
+}

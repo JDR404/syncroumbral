@@ -69,7 +69,8 @@ pub fn handle<H: Ui>(core: &Core, h: &H, kind: &str, v: &Value) {
         "share_text" => {
             let text: String = v["text"].as_str().unwrap_or("").chars().take(MAX_TEXT).collect();
             if !text.trim().is_empty() {
-                core.push_notif(h, &item(format!("share-{}", now_ms()), "Texto", text, json!({"kind": "text"})));
+                // `clip`: lo envió el botón «Copiar al PC» del móvil; la interfaz lo deja ya en el portapapeles del PC.
+                core.push_notif(h, &item(format!("share-{}", now_ms()), "Texto", text, json!({"kind": "text", "clip": v["clip"] == true})));
             }
         }
         "share_begin" => begin(core, h, v),

@@ -1,0 +1,13 @@
+[package]
+name = "release-sign"
+version = "0.1.0"
+edition = "2021"
+publish = false
+description = "Firma las publicaciones de SyncroUmbral (ECDSA P-256): la actualización automática solo acepta lo firmado con esta clave."
+
+[workspace]
+
+[dependencies]
+p256 = { version = "0.13", features = ["ecdsa", "pkcs8"] }
+rand = "0.8"
+base64 = "0.22"

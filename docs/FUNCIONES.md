@@ -42,6 +42,8 @@ variar por modelo de teléfono y versión.
 | M7 | Enviar al móvil con un clic (enlaces, texto, archivos) desde el Explorador y el navegador | Parcial | Hecho para archivos y carpetas: botón en Ajustes añade «Enviar al móvil con SyncroUmbral» al clic derecho (probado con `--send`). **Pendiente**: enlaces y texto desde el navegador |
 | M8 | Búsqueda única en archivos, notificaciones y mensajes (local) | Pendiente | Ahora hay búsqueda solo en contactos |
 | M10 | Interfaz cuidada: tipografía, iconos, panel derecho, aprovechamiento de pantalla grande | Hecho (0.5.0) | Mejoras visuales pendientes: ver la lista de ideas en docs/SLINT.md |
+| M11 | Mensajería: servicios propios (cualquier web https) y más servicios incluidos | Hecho (0.6.0) | |
+| M12 | Actualizaciones firmadas | Hecho (0.6.0) | Clave privada fuera del repositorio |
 | M9 | Varios PC y varios móviles | Pendiente | El PC ya admite varios móviles vinculados; falta un cambio de móvil activo y que el móvil recuerde varios PC |
 
 ## Cómo se decide qué sigue

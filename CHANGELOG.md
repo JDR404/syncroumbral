@@ -1,5 +1,30 @@
 # Cambios
 
+## 0.6.0 — 2026-11-19
+
+### Correcciones importantes
+- **Quitar un móvil lo desvincula de verdad.** Antes, al quitarlo de la lista del PC, la sesión ya abierta seguía conectada y el móvil seguía creyéndose vinculado.
+  Ahora el PC corta la sesión en el siguiente latido (≤ 2 s) y el móvil, al recibir «dispositivo no vinculado», borra su vinculación y deja de reconectar.
+- **Ajustes de la 0.4.0 y 0.5.0 pisaban los del agente** (ambos usaban `settings.json`): el agente registraba «MANIPULADO» y descartaba sus ajustes (modo completo, silenciar en llamadas, apps silenciadas). Los de la interfaz pasan a `ui-settings.json`; al arrancar se migra el archivo viejo.
+  Si usabas «Modo completo» o tenías apps silenciadas, vuelve a activarlos.
+- **Portapapeles del móvil al PC fiable**: el botón «Copiar al PC» reintenta leer el portapapeles (Android da el foco con retraso) y el PC deja el texto directamente en su portapapeles.
+
+### Archivos
+- Una carpeta se abre con **un clic**; una casilla marca cualquier elemento. Antes un clic marcaba la carpeta y no se podía entrar.
+- **Filtro por nombre** y «Marcar todo» en cada panel; se ve a qué carpeta irá cada copia («Enviar al móvil a: ...», «Traer al PC a: ...»).
+- La barra de desplazamiento ya no tapa botones ni mensajes en Archivos, Llamadas y Mensajes.
+
+### Mensajería
+- Diseño en tarjetas con varias columnas; más servicios (Mensajes de Google con SMS y RCS, Discord, Slack, X, LinkedIn, Gmail, Outlook, Teams).
+- **Añade tus propios servicios**: nombre y dirección https; se abren aislados en Edge con la sesión guardada. Se pueden quitar.
+
+### Seguridad (ver [docs/SEGURIDAD.md](docs/SEGURIDAD.md))
+- El PC solo atiende conexiones de la red local (privadas, enlace local, Tailscale o el propio equipo): se cortan las de direcciones públicas.
+- **Actualizaciones firmadas**: la lista de huellas debe llevar la firma ECDSA P-256 del autor; una cuenta de GitHub comprometida ya no basta para colar un ejecutable.
+- El móvil limita las llamadas (6 cada 10 min) y los SMS (15 cada 10 min) que puede pedir el PC.
+- Nueva prueba: quitar un móvil corta su sesión.
+- Botón «Copiar el código» de vinculación (para vincular sin cámara).
+
 ## 0.5.0 — 2026-11-19
 
 ### Rediseño de la interfaz

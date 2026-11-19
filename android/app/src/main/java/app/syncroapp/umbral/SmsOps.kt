@@ -80,6 +80,7 @@ object SmsOps {
     @Suppress("DEPRECATION")
     private fun send(ctx: Context, address: String, text: String): JSONObject {
         need(ctx, android.Manifest.permission.SEND_SMS, "Enviar SMS")
+        RateLimit.check("sms", 15, 10 * 60_000L, "SMS")
         require(ADDRESS.matches(address)) { "Número no válido" }
         require(text.isNotBlank() && text.length <= 1000) { "El mensaje está vacío o es demasiado largo" }
         val sm = ctx.getSystemService(SmsManager::class.java) ?: SmsManager.getDefault()

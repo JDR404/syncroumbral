@@ -826,3 +826,28 @@ async fn phone_can_lock_and_unlock_the_pc_from_its_notification() {
     h.core.unlock_from_phone();
     assert!(h.core.is_locked(), "sin móvil presente no se levanta nada");
 }
+
+#[tokio::test]
+async fn removing_a_device_cuts_its_live_session() {
+    let h = harness(Duration::from_secs(10)).await;
+    let key = SigningKey::random(&mut rand::rngs::OsRng);
+    pair_device(&h, &key).await;
+    let mut ws = connect(h.port, &h.fp).await.unwrap();
+    assert_eq!(login(&mut ws, &key).await["t"], "ok");
+    say(&mut ws, json!({"t": "hb", "seq": 1})).await;
+    assert_eq!(hear(&mut ws).await["t"], "ack");
+    assert!(!h.core.snapshot().locked, "conectado y vinculado: abierto");
+
+    // El usuario lo quita de la lista: en el siguiente latido la sesión se corta y el PC se bloquea.
+    h.core.remove_device(&key_id(&spki(&key)));
+    say(&mut ws, json!({"t": "hb", "seq": 2})).await;
+    let m = hear(&mut ws).await;
+    assert_eq!(m["t"], "error");
+    assert_eq!(m["msg"], "dispositivo no vinculado");
+    settle().await;
+    assert!(h.core.snapshot().locked, "sin móvil vinculado, el PC queda bloqueado");
+
+    // Y no puede volver a entrar con la misma clave.
+    let mut again = connect(h.port, &h.fp).await.unwrap();
+    assert_eq!(login(&mut again, &key).await["msg"], "dispositivo no vinculado");
+}

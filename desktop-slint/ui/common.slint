@@ -1,4 +1,4 @@
-import { ListView } from "std-widgets.slint";
+import { ListView, LineEdit } from "std-widgets.slint";
 import "fonts/Inter-Regular.ttf";
 import "fonts/Inter-Medium.ttf";
 import "fonts/Inter-SemiBold.ttf";
@@ -45,6 +45,9 @@ export global Icons {
     out property <string> battery: "M15.67 4H14V2h-4v2H8.33C7.6 4 7 4.6 7 5.33v15.33C7 21.4 7.6 22 8.33 22h7.33c.74 0 1.34-.6 1.34-1.33V5.33C17 4.6 16.4 4 15.67 4z";
     out property <string> phone-android: "M16 1H8C6.34 1 5 2.34 5 4v16c0 1.66 1.34 3 3 3h8c1.66 0 3-1.34 3-3V4c0-1.66-1.34-3-3-3zm-2 20h-4v-1h4v1zm3.25-3H6.75V4h10.5v14z";
     out property <string> call: "M20 15.5c-1.25 0-2.45-.2-3.57-.57-.35-.11-.74-.03-1.02.24l-2.2 2.2c-2.83-1.44-5.15-3.75-6.59-6.59l2.2-2.21c.28-.26.36-.65.25-1C8.7 6.45 8.5 5.25 8.5 4c0-.55-.45-1-1-1H4c-.55 0-1 .45-1 1 0 9.39 7.61 17 17 17 .55 0 1-.45 1-1v-3.5c0-.55-.45-1-1-1z";
+    out property <string> check: "M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z";
+    out property <string> file: "M6 2c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6H6zm7 7V3.5L18.5 9H13z";
+    out property <string> add: "M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z";
     out property <string> copy: "M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z";
 }
 
@@ -150,7 +153,10 @@ export struct DeviceItem {
 export struct ServiceItem {
     id: string,
     name: string,
+    url: string,
+    initial: string,
     has-session: bool,
+    custom: bool,
 }
 
 // Botón en forma de píldora. kind: 0 principal, 1 tonal, 2 contorno, 3 peligro.
@@ -302,22 +308,34 @@ export component FileRow inherits Rectangle {
     in property <FileItem> item;
     callback toggled();
     callback opened();
-    height: 38px;
-    border-radius: 14px;
+    height: 40px;
+    border-radius: 12px;
     background: item.selected ? Theme.container : touch.has-hover ? Theme.surface2 : transparent;
+    // Una carpeta se abre con un clic; un archivo se marca con un clic. La casilla de la izquierda marca cualquiera de los dos.
+    touch := TouchArea {
+        mouse-cursor: pointer;
+        clicked => { if item.dir { root.opened(); } else { root.toggled(); } }
+        double-clicked => { root.opened(); }
+    }
     HorizontalLayout {
-        padding-left: 14px;
-        padding-right: 14px;
-        spacing: 12px;
+        padding-left: 10px;
+        padding-right: 24px;
+        spacing: 10px;
         Rectangle {
-            width: 16px;
-            height: 16px;
-            y: (parent.height - self.height) / 2;
-            border-radius: item.dir ? 3px : 2px;
-            background: item.dir ? Theme.folder : transparent;
-            border-width: item.dir ? 0px : 1.5px;
-            border-color: item.selected ? Theme.on-container : Theme.muted;
+            width: 28px;
+            Rectangle {
+                width: 20px;
+                height: 20px;
+                y: (parent.height - self.height) / 2;
+                border-radius: 6px;
+                background: item.selected ? Theme.primary : transparent;
+                border-width: item.selected ? 0px : 1.5px;
+                border-color: Theme.muted;
+                if item.selected: Icon { d: Icons.check; tint: Theme.on-primary; x: 2px; y: 2px; width: 16px; height: 16px; }
+            }
+            box := TouchArea { mouse-cursor: pointer; clicked => { root.toggled(); } }
         }
+        Icon { d: item.dir ? Icons.folder : Icons.file; tint: item.dir ? Theme.folder : Theme.muted; y: (parent.height - self.height) / 2; }
         Text {
             text: item.name;
             color: item.selected ? Theme.on-container : Theme.text;
@@ -333,11 +351,6 @@ export component FileRow inherits Rectangle {
             horizontal-alignment: right;
         }
     }
-    touch := TouchArea {
-        mouse-cursor: pointer;
-        clicked => { root.toggled(); }
-        double-clicked => { root.opened(); }
-    }
 }
 
 export component Pane inherits Rectangle {
@@ -350,8 +363,13 @@ export component Pane inherits Rectangle {
     callback opened(int);
     callback up();
     callback refresh();
+    in-out property <string> filter-text;
+    callback filter(string);
+    callback select-all();
     background: Theme.surface;
     border-radius: 20px;
+    border-width: 1px;
+    border-color: Theme.border;
     clip: true;
     VerticalLayout {
         padding-top: 14px;
@@ -360,11 +378,18 @@ export component Pane inherits Rectangle {
             padding-left: 18px;
             padding-right: 14px;
             spacing: 8px;
-            Text { text: root.title; font-size: 16px; color: Theme.text; vertical-alignment: center; horizontal-stretch: 1; overflow: elide; }
+            Text { text: root.title; font-size: 16px; font-weight: 600; color: Theme.text; vertical-alignment: center; horizontal-stretch: 1; overflow: elide; }
             Pill { icon-d: Icons.left; label: "Subir"; kind: 1; height: 32px; min-width: 70px; clicked => { root.up(); } }
             Pill { icon-d: Icons.refresh; label: ""; kind: 1; height: 32px; clicked => { root.refresh(); } }
         }
         HorizontalLayout { padding-left: 18px; padding-right: 14px; height: 14px; Text { text: root.path; font-size: 11px; color: Theme.muted; overflow: elide; } }
+        HorizontalLayout {
+            padding-left: 14px;
+            padding-right: 14px;
+            spacing: 8px;
+            LineEdit { text <=> root.filter-text; placeholder-text: "Filtrar por nombre"; edited(t) => { root.filter(t); } }
+            Pill { label: "Marcar todo"; kind: 2; height: 32px; min-width: 100px; y: 2px; clicked => { root.select-all(); } }
+        }
         if root.message != "": Rectangle {
             vertical-stretch: 1;
             Text {

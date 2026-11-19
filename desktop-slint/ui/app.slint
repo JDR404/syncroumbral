@@ -116,6 +116,8 @@ export component AppWindow inherits Window {
     in property <string> pc-message;
     in property <string> phone-message;
     in property <string> phone-footer;
+    in-out property <string> pc-filter;
+    in-out property <string> phone-filter;
     in property <string> transfer-text;
     in property <float> transfer-frac;
     in property <bool> transfer-active;
@@ -174,6 +176,8 @@ export component AppWindow inherits Window {
     callback pane-open(bool, int);
     callback pane-up(bool);
     callback pane-refresh(bool);
+    callback pane-filter(bool, string);
+    callback pane-select-all(bool);
     callback send-to-phone();
     callback bring-to-pc();
     callback cancel-transfer();
@@ -190,7 +194,10 @@ export component AppWindow inherits Window {
     callback app-action(string);
     callback web-open(int);
     callback web-forget(int);
+    callback add-service(string, string);
+    callback remove-service(int);
     callback make-qr();
+    callback copy-pairing();
     callback remove-device(string);
     callback toggled-autostart(bool);
     callback toggled-mute(bool);
@@ -228,6 +235,8 @@ export component AppWindow inherits Window {
     property <int> acols: Math.max(1, Math.floor((root.content-w - 40px) / 138px));
     property <length> acell-w: (root.content-w - 40px) / Math.max(1, Math.floor((root.content-w - 40px) / 138px));
 
+    property <int> scols: Math.max(1, Math.floor(root.content-w / 440px));
+    property <length> scell-w: root.content-w / Math.max(1, Math.floor(root.content-w / 440px));
     property <string> page-title: root.page == 0 ? "Archivos" : root.page == 1 ? "Notificaciones" : root.page == 2 ? "Galería" : root.page == 3 ? "Llamadas"
         : root.page == 4 ? "Aplicaciones del móvil" : root.page == 5 ? "Mensajería" : root.page == 7 ? "Mensajes SMS" : "Móviles y ajustes";
     property <string> page-sub: root.page == 0 ? "Copia archivos entre el PC y el móvil. También puedes arrastrarlos sobre esta ventana."
@@ -253,7 +262,7 @@ export component AppWindow inherits Window {
                 padding: 30px;
                 spacing: 12px;
                 alignment: center;
-                Image { source: @image-url("icon.png"); width: 52px; height: 52px; }
+                HorizontalLayout { alignment: center; Image { source: @image-url("icon.png"); width: 52px; height: 52px; } }
                 Text { text: root.has-password ? "SyncroUmbral bloqueado" : "Crea una clave"; font-size: 22px; font-weight: 600; color: Theme.text; horizontal-alignment: center; }
                 Text {
                     text: root.has-password ? root.lock-hint : "Sirve para abrir SyncroUmbral cuando no tengas el móvil cerca (mínimo 8 caracteres).";
@@ -405,13 +414,20 @@ export component AppWindow inherits Window {
                             opened(i) => { root.pane-open(false, i); }
                             up => { root.pane-up(false); }
                             refresh => { root.pane-refresh(false); }
+                            filter-text <=> root.pc-filter;
+                            filter(t) => { root.pane-filter(false, t); }
+                            select-all => { root.pane-select-all(false); }
                         }
                         VerticalLayout {
-                            width: 112px;
+                            width: 150px;
                             alignment: center;
-                            spacing: 10px;
-                            Pill { icon-d: Icons.send; label: "Enviar"; min-width: 100px; clicked => { root.send-to-phone(); } }
-                            Pill { icon-d: Icons.download; label: "Traer"; min-width: 100px; kind: 1; clicked => { root.bring-to-pc(); } }
+                            spacing: 6px;
+                            Pill { icon-d: Icons.send; label: "Enviar al móvil"; min-width: 140px; clicked => { root.send-to-phone(); } }
+                            Text { text: "a: " + (root.phone-path == "" ? "raíz" : root.phone-path); color: Theme.muted; font-size: 11px; wrap: word-wrap; horizontal-alignment: center; }
+                            Rectangle { height: 14px; }
+                            Pill { icon-d: Icons.download; label: "Traer al PC"; min-width: 140px; kind: 1; clicked => { root.bring-to-pc(); } }
+                            Text { text: "a: " + root.pc-path; color: Theme.muted; font-size: 11px; wrap: word-wrap; horizontal-alignment: center; }
+                            Text { text: "Entra en una carpeta con un clic y marca con la casilla lo que quieras mover."; color: Theme.muted; font-size: 11px; wrap: word-wrap; horizontal-alignment: center; }
                         }
                         Pane {
                             title: "Móvil";
@@ -423,6 +439,9 @@ export component AppWindow inherits Window {
                             opened(i) => { root.pane-open(true, i); }
                             up => { root.pane-up(true); }
                             refresh => { root.pane-refresh(true); }
+                            filter-text <=> root.phone-filter;
+                            filter(t) => { root.pane-filter(true, t); }
+                            select-all => { root.pane-select-all(true); }
                         }
                     }
                     if root.transfer-active || root.transfer-text != "": Rectangle {
@@ -576,6 +595,7 @@ export component AppWindow inherits Window {
                                         height: 44px;
                                         HorizontalLayout {
                                             spacing: 10px;
+                                            padding-right: 22px;
                                             Text { text: c.name; color: Theme.text; vertical-alignment: center; overflow: elide; horizontal-stretch: 1; }
                                             Text { text: c.number; color: Theme.muted; font-size: 12px; vertical-alignment: center; }
                                             Pill { icon-d: Icons.call; label: ""; kind: 1; height: 32px; y: 6px; clicked => { root.dial(c.number); } }
@@ -600,6 +620,7 @@ export component AppWindow inherits Window {
                                         height: 50px;
                                         HorizontalLayout {
                                             spacing: 10px;
+                                            padding-right: 22px;
                                             Text { text: c.kind == 1 ? "↙" : c.kind == 2 ? "↗" : "✕"; color: c.kind == 3 ? Theme.bad : Theme.ok; vertical-alignment: center; font-size: 16px; }
                                             VerticalLayout {
                                                 horizontal-stretch: 1;
@@ -645,7 +666,7 @@ export component AppWindow inherits Window {
                                         background: i == root.sms-selected ? Theme.container : ta.has-hover ? Theme.surface2 : transparent;
                                         VerticalLayout {
                                             padding-left: 12px;
-                                            padding-right: 12px;
+                                            padding-right: 24px;
                                             alignment: center;
                                             HorizontalLayout {
                                                 spacing: 8px;
@@ -674,8 +695,8 @@ export component AppWindow inherits Window {
                                     for m in root.messages: Rectangle {
                                         height: bubble.height + 8px;
                                         bubble := Rectangle {
-                                            x: m.mine ? parent.width - self.width - 8px : 4px;
-                                            width: min(parent.width * 0.7, 560px);
+                                            x: m.mine ? parent.width - self.width - 22px : 4px;
+                                            width: min((parent.width - 22px) * 0.7, 560px);
                                             height: msg-text.preferred-height + 22px;
                                             border-radius: 16px;
                                             background: m.mine ? Theme.container : Theme.surface2;
@@ -736,20 +757,58 @@ export component AppWindow inherits Window {
                 // ------------------------------------------------------ Mensajería
                 if root.page == 5: VerticalLayout {
                     spacing: 12px;
-                    alignment: start;
-                    Text { text: "Cada servicio se abre en su propia ventana de Edge, aislada del resto, y se cierra al bloquear SyncroUmbral. No hay un navegador residente dentro de la aplicación."; color: Theme.muted; wrap: word-wrap; }
-                    for s[i] in root.services: Card {
+                    vertical-stretch: 1;
+                    Card {
+                        title: "Añadir un servicio";
+                        subtitle: "Cualquier web de mensajes o correo que funcione en el navegador: ponle un nombre y pega su dirección (https). Se abre en su propia ventana, aislada, con la sesión guardada.";
                         HorizontalLayout {
-                            spacing: 12px;
-                            height: 46px;
-                            VerticalLayout {
-                                horizontal-stretch: 1;
-                                alignment: center;
-                                Text { text: s.name; color: Theme.text; font-size: 15px; font-weight: 600; }
-                                Text { text: s.has-session ? "Sesión guardada: no tendrás que volver a iniciarla" : "Aún sin iniciar sesión"; color: Theme.muted; font-size: 12px; }
+                            spacing: 10px;
+                            svc-name := LineEdit { placeholder-text: "Nombre (por ejemplo, Signal)"; width: 240px; }
+                            svc-url := LineEdit { placeholder-text: "https://..."; horizontal-stretch: 1; }
+                            Pill { icon-d: Icons.add; label: "Añadir"; y: 2px; clicked => { root.add-service(svc-name.text, svc-url.text); svc-name.text = ""; svc-url.text = ""; } }
+                        }
+                    }
+                    ScrollView {
+                        vertical-stretch: 1;
+                        viewport-height: Math.ceil(root.services.length / root.scols) * 104px + 12px;
+                        for s[i] in root.services: Rectangle {
+                            x: Math.mod(i, root.scols) * root.scell-w;
+                            y: Math.floor(i / root.scols) * 104px;
+                            width: root.scell-w - 12px;
+                            height: 92px;
+                            background: Theme.surface;
+                            border-radius: 18px;
+                            border-width: 1px;
+                            border-color: Theme.border;
+                            HorizontalLayout {
+                                padding: 16px;
+                                spacing: 12px;
+                                Rectangle {
+                                    width: 44px;
+                                    height: 44px;
+                                    y: (parent.height - self.height) / 2;
+                                    border-radius: 14px;
+                                    background: Theme.container;
+                                    Text { text: s.initial; color: Theme.on-container; font-size: 20px; font-weight: 600; horizontal-alignment: center; vertical-alignment: center; }
+                                }
+                                VerticalLayout {
+                                    horizontal-stretch: 1;
+                                    alignment: center;
+                                    spacing: 2px;
+                                    Text { text: s.name; color: Theme.text; font-size: 15px; font-weight: 600; overflow: elide; }
+                                    Text { text: s.has-session ? "Sesión guardada" : "Sin iniciar sesión"; color: s.has-session ? Theme.ok : Theme.muted; font-size: 12px; }
+                                }
+                                VerticalLayout {
+                                    alignment: center;
+                                    spacing: 6px;
+                                    Pill { label: "Abrir"; height: 32px; min-width: 84px; clicked => { root.web-open(i); } }
+                                    HorizontalLayout {
+                                        spacing: 6px;
+                                        if s.has-session: Pill { label: "Olvidar"; kind: 3; height: 26px; min-width: 60px; clicked => { root.web-forget(i); } }
+                                        if s.custom: Pill { label: "Quitar"; kind: 3; height: 26px; min-width: 60px; clicked => { root.remove-service(i); } }
+                                    }
+                                }
                             }
-                            if s.has-session: Pill { label: "Olvidar sesión"; kind: 3; y: 5px; clicked => { root.web-forget(i); } }
-                            Pill { label: "Abrir"; y: 5px; clicked => { root.web-open(i); } }
                         }
                     }
                 }
@@ -786,7 +845,13 @@ export component AppWindow inherits Window {
                                     alignment: center;
                                     Text { text: "Abre SyncroUmbral en el móvil, toca «Escanear QR del PC» y apunta a este código. Vale 5 minutos."; color: Theme.muted; wrap: word-wrap; }
                                     Text { text: root.qr-text; color: Theme.text; wrap: word-wrap; }
-                                    HorizontalLayout { alignment: start; Pill { label: "Generar código"; clicked => { root.make-qr(); } } }
+                                    HorizontalLayout {
+                                        alignment: start;
+                                        spacing: 10px;
+                                        Pill { label: "Generar código"; clicked => { root.make-qr(); } }
+                                        Pill { icon-d: Icons.copy; label: "Copiar el código"; kind: 1; clicked => { root.copy-pairing(); } }
+                                    }
+                                    Text { text: "¿Sin cámara? Copia el código y pégalo en «Vincular con el código» de la app del móvil."; color: Theme.muted; font-size: 12px; wrap: word-wrap; }
                                 }
                             }
                         }

@@ -148,7 +148,17 @@ class LinkClient(private val ctx: Context) {
                     }
                     "req" -> io.execute { answer(webSocket, msg) }
                     "error" -> {
-                        Status.set("PC: ${msg.optString("msg")}")
+                        val m = msg.optString("msg")
+                        if (m == "dispositivo no vinculado") {
+                            // El PC quitó este móvil de su lista: aquí también se borra la vinculación y se deja de reconectar.
+                            Store(ctx).clear()
+                            KeyManager.reset()
+                            KeyManager.ensureKey()
+                            Status.set("Sin vincular: el PC quitó este móvil")
+                            LinkService.stop(ctx)
+                        } else {
+                            Status.set("PC: $m")
+                        }
                         webSocket.close(1000, null)
                     }
                 }
