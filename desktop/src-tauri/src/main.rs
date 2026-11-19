@@ -17,6 +17,7 @@ mod limits;
 mod places;
 mod ring;
 mod server;
+mod services;
 mod share;
 mod shell;
 mod toast;

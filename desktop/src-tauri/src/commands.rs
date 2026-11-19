@@ -282,13 +282,7 @@ pub async fn set_advanced(core: Shared<'_>, on: bool) -> Result<(), String> {
     Ok(())
 }
 
-fn ensure_advanced(core: &Core) -> Result<(), String> {
-    if core.advanced() {
-        Ok(())
-    } else {
-        Err("El modo avanzado está desactivado. Actívalo en Móviles y ajustes (o en la app del móvil) para usar esto.".into())
-    }
-}
+use crate::api::ensure_advanced;
 
 #[tauri::command]
 pub fn notif_mute(h: AppHandle, core: Shared, pkg: String, app: String) -> Result<(), String> {
@@ -376,19 +370,10 @@ pub async fn adb_status(core: Shared<'_>) -> Result<String, String> {
 /// Abre la app del móvil en una ventana del PC (pantalla virtual: el móvil puede seguir bloqueado).
 #[tauri::command]
 pub async fn app_open_pc(core: Shared<'_>, pkg: String, label: String) -> Result<String, String> {
-    ensure_unlocked(&core)?;
-    ensure_advanced(&core)?;
-    if !adb::valid_pkg(&pkg) {
-        return Err("Nombre de paquete no válido".into());
-    }
-    let ip = core.phone_ip();
     let core = core.inner().clone();
-    tauri::async_runtime::spawn_blocking(move || {
-        let serial = adb::find_device(ip.as_deref())?;
-        crate::appwin::open(&core.app_windows, &serial, &pkg, &label)
-    })
-    .await
-    .map_err(|e| e.to_string())?
+    tauri::async_runtime::spawn_blocking(move || crate::api::app_open_pc_blocking(&core, &pkg, &label))
+        .await
+        .map_err(|e| e.to_string())?
 }
 
 #[tauri::command]
@@ -400,41 +385,10 @@ pub fn app_windows(core: Shared) -> Result<Vec<String>, String> {
 /// Acciones sobre una app: launch, stop, settings, clear, uninstall, pull (extraer APK a `local_dir`).
 #[tauri::command]
 pub async fn app_action(core: Shared<'_>, pkg: String, action: String, local_dir: Option<String>) -> Result<String, String> {
-    ensure_unlocked(&core)?;
-    ensure_advanced(&core)?;
-    if !adb::valid_pkg(&pkg) {
-        return Err("Nombre de paquete no válido".into());
-    }
-    let ip = core.phone_ip();
-    let core_arc = core.inner().clone();
-    tauri::async_runtime::spawn_blocking(move || {
-        let serial = adb::find_device(ip.as_deref())?;
-        // Detener, borrar datos o desinstalar deja sin contenido la ventana de esa app en el PC: se cierra también.
-        let close_window = |r: Result<String, String>| {
-            if r.is_ok() {
-                crate::appwin::close_one(&core_arc.app_windows, &pkg);
-            }
-            r
-        };
-        match action.as_str() {
-            "launch" => adb::launch(&serial, &pkg),
-            "stop" => close_window(adb::force_stop(&serial, &pkg)),
-            "settings" => adb::app_settings(&serial, &pkg),
-            "clear" => close_window(adb::clear_data(&serial, &pkg)),
-            "uninstall" => close_window(adb::uninstall(&serial, &pkg)),
-            "pull" => {
-                let dir = local_dir.ok_or("Falta la carpeta de destino")?;
-                let dir = std::path::Path::new(&dir);
-                if !dir.is_dir() {
-                    return Err("La carpeta de destino no existe".to_string());
-                }
-                adb::pull_apk(&serial, &pkg, dir).map(|p| format!("APK guardado en {p}"))
-            }
-            _ => Err("Acción desconocida".to_string()),
-        }
-    })
-    .await
-    .map_err(|e| e.to_string())?
+    let core = core.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || crate::api::app_action_blocking(&core, &pkg, &action, local_dir))
+        .await
+        .map_err(|e| e.to_string())?
 }
 
 /// Modo cable: hace que el móvil alcance este PC por USB en 127.0.0.1:PORT.
