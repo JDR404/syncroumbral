@@ -194,7 +194,7 @@ SyncroUmbral es software libre bajo la **GNU GPL v3 o posterior** ([LICENSE](LIC
 
 ## Política de firma de código
 
-Página del proyecto: https://www.syncroapp.dev/umbral/
+Página del proyecto: https://www.syncroapp.dev/umbral/ · Política de privacidad: https://www.syncroapp.dev/umbral/privacidad
 
 **Estado actual:** los ejecutables de Windows todavía **no están firmados** (SmartScreen puede avisar); cada versión publica su `SHA256SUMS.txt` para verificarlos. Las versiones publicadas hasta ahora se compilaron en el equipo del autor.
 
