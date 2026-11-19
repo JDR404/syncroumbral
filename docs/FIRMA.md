@@ -1,6 +1,6 @@
 # Firma de código de Windows (SignPath Foundation)
 
-**Estado: aún no firmado.** Los `.exe` publicados no llevan firma de Windows (SmartScreen puede avisar). Esta guía deja todo listo para cuando SignPath Foundation apruebe el proyecto. Nada de aquí afirma que ya esté firmado.
+**Estado: aún no firmado. Solicitud enviada a SignPath Foundation el 2026-11-19, pendiente de respuesta.** Los `.exe` publicados no llevan firma de Windows (SmartScreen puede avisar). Esta guía deja todo listo para cuando SignPath Foundation apruebe el proyecto. Nada de aquí afirma que ya esté firmado.
 
 ## Qué está preparado en el repositorio
 | Pieza | Archivo |
