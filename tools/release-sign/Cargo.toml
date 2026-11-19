@@ -3,6 +3,7 @@ name = "release-sign"
 version = "0.1.0"
 edition = "2021"
 publish = false
+license = "GPL-3.0-or-later"
 description = "Firma las publicaciones de SyncroUmbral (ECDSA P-256): la actualización automática solo acepta lo firmado con esta clave."
 
 [workspace]

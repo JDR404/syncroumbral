@@ -1,0 +1,35 @@
+name: Compilar Windows
+
+# Compila el .exe en un runner de GitHub a partir del código público. Es lo que permite a SignPath
+# verificar que el binario que firma sale de este repositorio (ver "Política de firma" en el README).
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: desktop-slint
+      - name: Pruebas
+        working-directory: desktop-slint
+        run: cargo test --release
+      - name: Compilar
+        working-directory: desktop-slint
+        run: cargo build --release
+      - id: upload
+        uses: actions/upload-artifact@v4
+        with:
+          name: syncroumbral-windows-x64-sin-firmar
+          path: desktop-slint/target/release/syncroumbral.exe
+          if-no-files-found: error
+      # Cuando SignPath apruebe el proyecto se añade aquí el paso signpath/github-action-submit-signing-request
+      # (con el secreto SIGNPATH_API_TOKEN y el id de artefacto ${{ steps.upload.outputs.artifact-id }}).

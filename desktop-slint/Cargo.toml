@@ -4,6 +4,7 @@ version = "0.6.0"
 edition = "2021"
 description = "SyncroUmbral con interfaz nativa Slint (sin WebView): comparte el agente con la versión Tauri"
 publish = false
+license = "GPL-3.0-or-later"
 
 # Crate independiente: no forma parte de desktop/src-tauri. Comparte sus módulos del agente con #[path].
 [workspace]

@@ -2,6 +2,7 @@
 name = "syncroumbral"
 version = "0.6.0"
 edition = "2021"
+license = "GPL-3.0-or-later"
 
 [features]
 # Solo para pruebas: abre un puerto de depuración en las ventanas web. No usar en la versión instalada.
