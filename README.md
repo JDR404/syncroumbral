@@ -196,7 +196,9 @@ SyncroUmbral es software libre bajo la **GNU GPL v3 o posterior** ([LICENSE](LIC
 
 Página del proyecto: https://www.syncroapp.dev/umbral/
 
-Los ejecutables de Windows se firmarán con un certificado gratuito de [SignPath Foundation](https://signpath.org/) (pendiente de aprobación). Se compilan en GitHub Actions a partir de este repositorio público (`.github/workflows/build-windows.yml`).
+**Estado actual:** los ejecutables de Windows todavía **no están firmados** (SmartScreen puede avisar); cada versión publica su `SHA256SUMS.txt` para verificarlos. Las versiones publicadas hasta ahora se compilaron en el equipo del autor.
+
+**Plan:** solicitar el certificado gratuito de [SignPath Foundation](https://signpath.org/). Si lo aprueban, las versiones se compilarán en GitHub Actions a partir de este repositorio público (`.github/workflows/build-windows.yml`, ya preparado) y se firmarán con él; este apartado se actualizará entonces.
 
 - **Autor y aprobador de las firmas:** el propietario del repositorio ([@juandr404](https://github.com/juandr404)).
 - **Privacidad:** el programa no envía datos a servidores del autor; solo habla con tu móvil por la red local y consulta las publicaciones de GitHub para buscar actualizaciones. Detalle en [docs/SEGURIDAD.md](docs/SEGURIDAD.md).
