@@ -1,4 +1,7 @@
 import { ListView } from "std-widgets.slint";
+import "fonts/Inter-Regular.ttf";
+import "fonts/Inter-Medium.ttf";
+import "fonts/Inter-SemiBold.ttf";
 // Piezas comunes de la interfaz nativa de SyncroUmbral: paleta, tipos de datos y componentes sueltos.
 export global Theme {
     out property <color> bg: #0e1415;
@@ -15,7 +18,49 @@ export global Theme {
     out property <color> ok: #78dc77;
     out property <color> bad: #ffb4ab;
     out property <color> folder: #f2b93b;
+    out property <color> border: #263234;
 }
+
+
+// Iconos vectoriales (Material Design, Apache 2.0), dibujados como trazados: nítidos a cualquier tamaño y sin archivos de imagen.
+export global Icons {
+    out property <string> folder: "M10 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2h-8l-2-2z";
+    out property <string> bell: "M12 22c1.1 0 2-.9 2-2h-4c0 1.1.89 2 2 2zm6-6v-5c0-3.07-1.64-5.64-4.5-6.32V4c0-.83-.67-1.5-1.5-1.5s-1.5.67-1.5 1.5v.68C7.63 5.36 6 7.92 6 11v5l-2 2v1h16v-1l-2-2z";
+    out property <string> image: "M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z";
+    out property <string> phone: "M6.62 10.79c1.44 2.83 3.76 5.14 6.59 6.59l2.2-2.2c.27-.27.67-.36 1.02-.24 1.12.37 2.33.57 3.57.57.55 0 1 .45 1 1V20c0 .55-.45 1-1 1-9.39 0-17-7.61-17-17 0-.55.45-1 1-1h3.5c.55 0 1 .45 1 1 0 1.25.2 2.45.57 3.57.11.35.03.74-.25 1.02l-2.2 2.2z";
+    out property <string> chat: "M20 2H4c-1.1 0-1.99.9-1.99 2L2 22l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zM6 9h12v2H6V9zm8 5H6v-2h8v2zm4-6H6V6h12v2z";
+    out property <string> apps: "M4 8h4V4H4v4zm6 12h4v-4h-4v4zm-6 0h4v-4H4v4zm0-6h4v-4H4v4zm6 0h4v-4h-4v4zm6-10v4h4V4h-4zm-6 4h4V4h-4v4zm6 6h4v-4h-4v4zm0 6h4v-4h-4v4z";
+    out property <string> forum: "M21 6h-2v9H6v2c0 .55.45 1 1 1h11l4 4V7c0-.55-.45-1-1-1zm-4 6V3c0-.55-.45-1-1-1H3c-.55 0-1 .45-1 1v14l4-4h10c.55 0 1-.45 1-1z";
+    out property <string> settings: "M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z";
+    out property <string> lock: "M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1 1.71 0 3.1 1.39 3.1 3.1v2z";
+    out property <string> clipboard: "M19 2h-4.18C14.4.84 13.3 0 12 0c-1.3 0-2.4.84-2.82 2H5c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-7 0c.55 0 1 .45 1 1s-.45 1-1 1-1-.45-1-1 .45-1 1-1zm7 18H5V4h2v3h10V4h2v16z";
+    out property <string> sound: "M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z";
+    out property <string> send: "M2.01 21L23 12 2.01 3 2 10l15 2-15 2z";
+    out property <string> close: "M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z";
+    out property <string> left: "M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z";
+    out property <string> right: "M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z";
+    out property <string> refresh: "M17.65 6.35C16.2 4.9 14.21 4 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08c-.82 2.33-3.04 4-5.65 4-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z";
+    out property <string> download: "M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z";
+    out property <string> search: "M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z";
+    out property <string> battery: "M15.67 4H14V2h-4v2H8.33C7.6 4 7 4.6 7 5.33v15.33C7 21.4 7.6 22 8.33 22h7.33c.74 0 1.34-.6 1.34-1.33V5.33C17 4.6 16.4 4 15.67 4z";
+    out property <string> phone-android: "M16 1H8C6.34 1 5 2.34 5 4v16c0 1.66 1.34 3 3 3h8c1.66 0 3-1.34 3-3V4c0-1.66-1.34-3-3-3zm-2 20h-4v-1h4v1zm3.25-3H6.75V4h10.5v14z";
+    out property <string> call: "M20 15.5c-1.25 0-2.45-.2-3.57-.57-.35-.11-.74-.03-1.02.24l-2.2 2.2c-2.83-1.44-5.15-3.75-6.59-6.59l2.2-2.21c.28-.26.36-.65.25-1C8.7 6.45 8.5 5.25 8.5 4c0-.55-.45-1-1-1H4c-.55 0-1 .45-1 1 0 9.39 7.61 17 17 17 .55 0 1-.45 1-1v-3.5c0-.55-.45-1-1-1z";
+    out property <string> copy: "M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z";
+}
+
+// Icono vectorial de 24x24 teñido con el color indicado.
+export component Icon inherits Path {
+    in property <string> d;
+    in property <color> tint: Theme.muted;
+    width: 20px;
+    height: 20px;
+    viewbox-width: 24;
+    viewbox-height: 24;
+    fill: root.tint;
+    commands: root.d;
+}
+
+
 
 export struct FileItem {
     name: string,
@@ -87,6 +132,14 @@ export struct AppItem {
     label: string,
     system: bool,
     open: bool,
+    has-icon: bool,
+    icon: image,
+}
+
+export struct AlbumItem {
+    name: string,
+    count: int,
+    selected: bool,
 }
 
 export struct DeviceItem {
@@ -103,11 +156,13 @@ export struct ServiceItem {
 // Botón en forma de píldora. kind: 0 principal, 1 tonal, 2 contorno, 3 peligro.
 export component Pill inherits Rectangle {
     in property <string> label;
+    in property <string> icon-d;
     in property <int> kind: 0;
     in property <bool> enabled: true;
     callback clicked();
     height: 36px;
-    min-width: 84px;
+    min-width: root.label == "" ? 40px : 84px;
+    horizontal-stretch: 0;
     border-radius: 18px;
     background: kind == 0 ? Theme.primary
         : kind == 1 ? #0c5c66
@@ -119,10 +174,18 @@ export component Pill inherits Rectangle {
     opacity: enabled ? 1.0 : 0.4;
     animate background { duration: 120ms; }
     HorizontalLayout {
-        padding-left: 18px;
-        padding-right: 18px;
+        padding-left: root.label == "" ? 12px : 18px;
+        padding-right: root.label == "" ? 12px : 18px;
+        spacing: 8px;
         alignment: center;
-        Text {
+        if root.icon-d != "": Icon {
+            d: root.icon-d;
+            width: 16px;
+            height: 16px;
+            y: (parent.height - self.height) / 2;
+            tint: kind == 0 ? Theme.on-primary : kind == 1 ? #b7f1fa : kind == 3 ? Theme.bad : Theme.text;
+        }
+        if root.label != "": Text {
             text: root.label;
             color: kind == 0 ? Theme.on-primary : kind == 1 ? #b7f1fa : kind == 3 ? Theme.bad : Theme.text;
             font-size: 13px;
@@ -169,14 +232,16 @@ export component SwitchRow inherits Rectangle {
     in property <string> hint;
     in-out property <bool> checked;
     callback toggled(bool);
-    height: hint == "" ? 44px : 58px;
+    min-height: hint == "" ? 44px : 58px;
     HorizontalLayout {
         spacing: 16px;
+        padding-top: 4px;
+        padding-bottom: 4px;
         VerticalLayout {
             horizontal-stretch: 1;
             alignment: center;
             Text { text: root.label; color: Theme.text; overflow: elide; }
-            if root.hint != "": Text { text: root.hint; color: Theme.muted; font-size: 12px; overflow: elide; }
+            if root.hint != "": Text { text: root.hint; color: Theme.muted; font-size: 12px; wrap: word-wrap; }
         }
         Toggle {
             y: (parent.height - self.height) / 2;
@@ -186,40 +251,49 @@ export component SwitchRow inherits Rectangle {
     }
 }
 
-// Elemento del menú lateral.
+// Elemento del menú lateral: icono y texto; plegado, solo el icono con un punto si hay avisos.
 export component NavItem inherits Rectangle {
     in property <string> label;
+    in property <string> icon-d;
     in property <bool> active;
     in property <bool> collapsed;
     in property <int> badge: 0;
-    in property <string> glyph;
     callback clicked();
-    height: 44px;
-    border-radius: 22px;
+    height: 46px;
+    border-radius: 23px;
     background: active ? Theme.container : touch.has-hover ? Theme.surface : transparent;
     animate background { duration: 120ms; }
     HorizontalLayout {
-        padding-left: 18px;
-        padding-right: 14px;
-        spacing: 12px;
-        alignment: start;
-        Text {
-            text: root.collapsed ? root.glyph : root.label;
+        padding-left: root.collapsed ? 0px : 16px;
+        padding-right: 12px;
+        spacing: 14px;
+        alignment: root.collapsed ? center : start;
+        Icon { d: root.icon-d; tint: active ? Theme.on-container : Theme.muted; y: (parent.height - self.height) / 2; }
+        if !root.collapsed: Text {
+            text: root.label;
             color: active ? Theme.on-container : Theme.text;
             font-size: 14px;
-            font-weight: 500;
+            font-weight: active ? 600 : 500;
             vertical-alignment: center;
             horizontal-stretch: 1;
             overflow: elide;
         }
         if root.badge > 0 && !root.collapsed: Rectangle {
-            width: 20px;
-            height: 20px;
+            width: 22px;
+            height: 22px;
             y: (parent.height - self.height) / 2;
-            border-radius: 10px;
+            border-radius: 11px;
             background: Theme.bad;
             Text { text: root.badge; color: #410002; font-size: 11px; font-weight: 700; horizontal-alignment: center; vertical-alignment: center; }
         }
+    }
+    if root.badge > 0 && root.collapsed: Rectangle {
+        x: parent.width - 18px;
+        y: 8px;
+        width: 10px;
+        height: 10px;
+        border-radius: 5px;
+        background: Theme.bad;
     }
     touch := TouchArea { mouse-cursor: pointer; clicked => { root.clicked(); } }
 }
@@ -287,8 +361,8 @@ export component Pane inherits Rectangle {
             padding-right: 14px;
             spacing: 8px;
             Text { text: root.title; font-size: 16px; color: Theme.text; vertical-alignment: center; horizontal-stretch: 1; overflow: elide; }
-            Pill { label: "Subir"; kind: 1; height: 30px; min-width: 64px; clicked => { root.up(); } }
-            Pill { label: "Actualizar"; kind: 1; height: 30px; min-width: 92px; clicked => { root.refresh(); } }
+            Pill { icon-d: Icons.left; label: "Subir"; kind: 1; height: 32px; min-width: 70px; clicked => { root.up(); } }
+            Pill { icon-d: Icons.refresh; label: ""; kind: 1; height: 32px; clicked => { root.refresh(); } }
         }
         HorizontalLayout { padding-left: 18px; padding-right: 14px; height: 14px; Text { text: root.path; font-size: 11px; color: Theme.muted; overflow: elide; } }
         if root.message != "": Rectangle {

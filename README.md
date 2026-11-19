@@ -6,7 +6,7 @@
 > está abierta. Si se va, la aplicación se bloquea y oculta todo lo que había en pantalla. Sin móvil, solo se abre con una clave de respaldo.
 > Además trae al PC tus notificaciones, tus archivos y tus apps.
 
-Estado: **beta 0.4.0** · PC con interfaz nativa Slint (la versión Tauri de `desktop/` queda como referencia y ya no se publica) · Parte del portafolio de **SyncroApp** · Desarrollador: SyncroApp, `syncroapp.dev@gmail.com`
+Estado: **beta 0.5.0** · PC con interfaz nativa Slint (la versión Tauri de `desktop/` queda como referencia y ya no se publica) · Parte del portafolio de **SyncroApp** · Desarrollador: SyncroApp, `syncroapp.dev@gmail.com`
 (nombre anterior del proyecto: Umbral) · Seguridad: [docs/AUDITORIA_SEGURIDAD.md](docs/AUDITORIA_SEGURIDAD.md)
 
 Novedades de cada versión: [CHANGELOG.md](CHANGELOG.md).
@@ -35,7 +35,8 @@ Novedades de cada versión: [CHANGELOG.md](CHANGELOG.md).
 - **Archivos.** Explorador de dos paneles (PC y móvil), arrastrar y soltar desde el Explorador, copia de archivos y carpetas en ambos
   sentidos con varios archivos a la vez, progreso y cancelación. Cada archivo se verifica por tamaño y nunca queda a medias.
   Renombrar, crear y eliminar en el móvil. Las listas se manejan con teclado (flechas, Espacio, Intro).
-- **Galería, contactos, llamadas y SMS.** Fotos y vídeos del móvil con miniaturas, contactos con búsqueda, marcar y devolver llamadas desde el PC, y mensajes SMS (no MMS ni RCS). Permisos opcionales.
+- **Interfaz cuidada.** Tipografía Inter, iconos vectoriales, menú plegable con iconos y, en pantallas grandes, un panel derecho con la batería del móvil y acciones rápidas; las páginas aprovechan todo el ancho.
+- **Galería, contactos, llamadas y SMS.** Fotos y vídeos del móvil por álbum (cámara, capturas, WhatsApp, descargas...) con miniaturas, contactos con búsqueda, marcar y devolver llamadas desde el PC, y mensajes SMS (no MMS ni RCS). Permisos opcionales.
 - **Portapapeles y envío rápido.** El portapapeles viaja en ambos sentidos; clic derecho en un archivo, «Enviar al móvil con SyncroUmbral».
 - **Extras de seguridad y comodidad.** Copiar códigos de verificación con un clic, buscar el móvil (suena al máximo), bloquear Windows al alejarte, ocultar el contenido de los avisos, silenciar por palabras, copia automática de fotos y actualización automática.
 - **Compartir con el PC.** Desde el menú Compartir de cualquier app del móvil, el texto o los archivos llegan al PC.
@@ -47,7 +48,7 @@ Novedades de cada versión: [CHANGELOG.md](CHANGELOG.md).
   propia ventana de Edge, aislada y con la sesión guardada en el PC; se cierra al bloquear.
 - **Llamadas.** Aviso con sonido en el PC y botones Contestar y Rechazar (llamadas normales y de WhatsApp). Opcionalmente silencia el
   resto de sonidos del PC mientras suena. El audio de la conversación sigue en el móvil.
-- **Aplicaciones.** Lista con icono, versión, tamaño y fecha; abrir, detener, ajustes, extraer APK, borrar datos y desinstalar (por adb).
+- **Aplicaciones.** Mosaico con los iconos reales de las apps, búsqueda y acciones; abrir, detener, ajustes, extraer APK, borrar datos y desinstalar (por adb).
 - **Portabilidad.** SyncroUmbral descarga por sí mismo `adb` (Google) y `scrcpy` (GitHub) en versiones fijas, con su SHA-256 incrustado y verificado.
 - **Dos modos.** *Básico* (sin depuración: bloqueo, archivos, notificaciones, compartir, mensajería web) y *completo* (con depuración:
   además abrir y gestionar apps del móvil). Ver [docs/INSTALACION.md](docs/INSTALACION.md).

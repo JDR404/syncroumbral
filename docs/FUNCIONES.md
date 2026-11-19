@@ -17,7 +17,7 @@ variar por modelo de teléfono y versión.
 | P5 | Arrastrar y soltar desde el Explorador | Hecho | Soltar sobre la ventana envía a la carpeta del móvil abierta. Además, clic derecho en un archivo: «Enviar al móvil» (ver M7). La suelta con el ratón no se pudo probar de forma automática: el envío por el menú del Explorador usa el mismo camino y sí está probado |
 | P6 | Portapapeles PC al móvil | Hecho | `clip_set` |
 | P7 | Portapapeles móvil al PC | Hecho | Botón «Copiar al PC» en la notificación permanente (abre una actividad transparente que lo lee en primer plano, único modo permitido desde Android 10). La pulsación del botón está probada; el viaje completo del texto no se pudo comprobar de forma automática |
-| P8 | Galería con miniaturas y recientes | Hecho | DCIM, Pictures y Movies; miniaturas por tandas, vídeos marcados, seleccionar y traer al PC (Descargas\SyncroUmbral\Galería). Probado con 810 elementos |
+| P8 | Galería con miniaturas y recientes | Hecho | Todos los álbumes (MediaStore): cámara, capturas, WhatsApp, descargas...; miniaturas por tandas, vídeos marcados, seleccionar y traer al PC (Descargas\SyncroUmbral\Galería). Probado con 842 elementos en 10 álbumes |
 | P9 | Contactos del móvil | Hecho | Con búsqueda. Permiso opcional |
 | P10 | Hacer llamadas desde el PC (teclado, contactos, historial) | Hecho | Marcar, llamar a un contacto o devolver una llamada del historial. Probado marcando un código de servicio inocuo |
 | P11 | SMS y MMS: leer, buscar y escribir | Hecho (solo SMS) | Conversaciones y mensajes probados con el móvil; el envío está implementado pero no se probó con un destinatario real. **MMS no se lee y RCS no es posible** (Google no da acceso). Android no guarda en Mensajes lo enviado por otra app: el PC lo muestra en pantalla. Pedir permisos de SMS junto al acceso a notificaciones puede hacer saltar Play Protect en algunos móviles; aquí instaló sin avisos |
@@ -41,6 +41,7 @@ variar por modelo de teléfono y versión.
 | M6 | Copia automática de fotos al PC en tu red de casa | Hecho (sin comprobar la red) | Cada 5 min, con el móvil conectado, copia las fotos nuevas (hechas desde que se activa) a Imágenes\SyncroUmbral\Copia. No distingue «red de casa»: copia siempre que el móvil esté conectado. No probado de forma automática en una ronda real |
 | M7 | Enviar al móvil con un clic (enlaces, texto, archivos) desde el Explorador y el navegador | Parcial | Hecho para archivos y carpetas: botón en Ajustes añade «Enviar al móvil con SyncroUmbral» al clic derecho (probado con `--send`). **Pendiente**: enlaces y texto desde el navegador |
 | M8 | Búsqueda única en archivos, notificaciones y mensajes (local) | Pendiente | Ahora hay búsqueda solo en contactos |
+| M10 | Interfaz cuidada: tipografía, iconos, panel derecho, aprovechamiento de pantalla grande | Hecho (0.5.0) | Mejoras visuales pendientes: ver la lista de ideas en docs/SLINT.md |
 | M9 | Varios PC y varios móviles | Pendiente | El PC ya admite varios móviles vinculados; falta un cambio de móvil activo y que el móvil recuerde varios PC |
 
 ## Cómo se decide qué sigue

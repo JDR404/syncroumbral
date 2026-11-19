@@ -4,7 +4,7 @@
 use crate::core::Core;
 use crate::transfer::Item;
 use crate::ui::Ui;
-use crate::{AppItem, AppWindow, CallItem, ContactItem, DeviceItem, FileItem, MsgItem, Notif, NotifAction, Photo, ServiceItem, ThreadItem, ToastWindow};
+use crate::{AlbumItem, AppItem, AppWindow, CallItem, ContactItem, DeviceItem, FileItem, MsgItem, Notif, NotifAction, Photo, ServiceItem, ThreadItem, ToastWindow};
 use serde::Serialize;
 use serde_json::{json, Value};
 use slint::{ComponentHandle, Model, ModelRc, VecModel};
@@ -46,6 +46,12 @@ struct AppEntry {
 }
 
 pub struct Ctx {
+    albums: Mutex<Vec<AlbumMeta>>,
+    album: Mutex<String>,
+    app_icons: Mutex<HashMap<String, slint::SharedPixelBuffer<slint::Rgba8Pixel>>>,
+    apps_q: Mutex<String>,
+    show_system: std::sync::atomic::AtomicBool,
+    icons_busy: std::sync::atomic::AtomicBool,
     threads: Mutex<Vec<(String, String)>>,
     sms_open: Mutex<Option<String>>,
     sms_log: Mutex<Vec<(String, bool, String)>>,
@@ -249,9 +255,9 @@ fn notif_of(v: &Value) -> Notif {
     let reply = v["actions"].as_array().and_then(|a| a.iter().find(|x| x["reply"] == true));
     Notif {
         key: v["key"].as_str().unwrap_or("").into(),
-        app: v["app"].as_str().or(v["pkg"].as_str()).unwrap_or("").into(),
-        title: v["title"].as_str().unwrap_or("").into(),
-        text: v["text"].as_str().unwrap_or("").into(),
+        app: one_line(v["app"].as_str().or(v["pkg"].as_str()).unwrap_or(""), 40).into(),
+        title: one_line(v["title"].as_str().unwrap_or(""), 90).into(),
+        text: one_line(v["text"].as_str().unwrap_or(""), 260).into(),
         time: ago(v["when"].as_u64().unwrap_or(0)).into(),
         call: v["call"] == true,
         incoming: v["incoming"] == true,
@@ -331,6 +337,12 @@ fn qr_image(payload: &str) -> Option<slint::Image> {
 impl Ctx {
     pub fn new(core: Arc<Core>, rt: tokio::runtime::Handle, win: slint::Weak<AppWindow>) -> Arc<Self> {
         Arc::new(Ctx {
+            albums: Mutex::new(Vec::new()),
+            album: Mutex::new(String::new()),
+            app_icons: Mutex::new(HashMap::new()),
+            apps_q: Mutex::new(String::new()),
+            show_system: std::sync::atomic::AtomicBool::new(false),
+            icons_busy: std::sync::atomic::AtomicBool::new(false),
             threads: Mutex::new(Vec::new()),
             sms_open: Mutex::new(None),
             sms_log: Mutex::new(Vec::new()),
@@ -394,6 +406,8 @@ impl Ctx {
             };
             w.set_device_sub(sub.into());
             w.set_warn(s.warn.unwrap_or("").into());
+            w.set_battery(s.battery.map_or(-1, |b| b as i32));
+            w.set_charging(s.charging);
             w.set_lock_hint(
                 if s.lockout_secs > 0 {
                     format!("Demasiados intentos. Espera {} s.", s.lockout_secs)
@@ -418,6 +432,11 @@ impl Ctx {
         *self.files.lock().unwrap() = Files::default();
         self.apps.lock().unwrap().clear();
         *self.gallery.lock().unwrap() = Gallery::default();
+        self.albums.lock().unwrap().clear();
+        self.album.lock().unwrap().clear();
+        self.app_icons.lock().unwrap().clear();
+        w.set_albums(model(vec![]));
+        w.set_album_selected(-1);
         self.threads.lock().unwrap().clear();
         self.sms_log.lock().unwrap().clear();
         *self.sms_open.lock().unwrap() = None;
@@ -771,6 +790,7 @@ impl Ctx {
                     *me.apps.lock().unwrap() = list;
                     me.ui(|w| w.set_apps_message("".into()));
                     me.apply_apps(false);
+                    me.fetch_missing_icons();
                 }
                 Err(e) => {
                     let msg = if me.core.snapshot().present { e } else { "El móvil no está conectado.".to_string() };
@@ -785,14 +805,25 @@ impl Ctx {
         let me = self.clone();
         self.ui(move |w| {
             let show_sys = w.get_show_system();
+            me.show_system.store(show_sys, Ordering::SeqCst);
+            let q = me.apps_q.lock().unwrap().to_lowercase();
             let running = crate::appwin::running(&me.core.app_windows);
+            let icons = me.app_icons.lock().unwrap().clone();
             let items: Vec<AppItem> = me
                 .apps
                 .lock()
                 .unwrap()
                 .iter()
                 .filter(|a| show_sys || !a.system)
-                .map(|a| AppItem { pkg: a.pkg.clone().into(), label: a.label.clone().into(), system: a.system, open: running.contains(&a.pkg) })
+                .filter(|a| q.is_empty() || a.label.to_lowercase().contains(&q) || a.pkg.to_lowercase().contains(&q))
+                .map(|a| AppItem {
+                    pkg: a.pkg.clone().into(),
+                    label: a.label.clone().into(),
+                    system: a.system,
+                    open: running.contains(&a.pkg),
+                    has_icon: icons.contains_key(&a.pkg),
+                    icon: icons.get(&a.pkg).cloned().map(slint::Image::from_rgba8).unwrap_or_default(),
+                })
                 .collect();
             w.set_apps(model(items));
             w.set_app_selected(-1);
@@ -943,6 +974,7 @@ pub fn wire(win: &AppWindow, ctx: &Arc<Ctx>) {
         1 => c.push_notifs(),
         2 => {
             if c.gallery.lock().unwrap().items.is_empty() {
+                c.load_albums();
                 c.load_gallery(true);
             }
         }
@@ -1068,7 +1100,12 @@ pub fn wire(win: &AppWindow, ctx: &Arc<Ctx>) {
     // ---- aplicaciones
     let c = ctx.clone();
     win.on_apps_refresh(move || {
-        if c.apps.lock().unwrap().is_empty() { c.load_apps() } else { c.apply_apps(false) }
+        if c.apps.lock().unwrap().is_empty() {
+            c.load_apps()
+        } else {
+            c.apply_apps(false);
+            c.fetch_missing_icons();
+        }
     });
     let c = ctx.clone();
     win.on_app_select(move |i| c.ui(move |w| w.set_app_selected(i)));
@@ -1126,6 +1163,7 @@ pub fn wire(win: &AppWindow, ctx: &Arc<Ctx>) {
     win.on_copy_code(move |code| c.copy_code(code.to_string()));
 
     wire_extras(win, ctx);
+    wire_more(win, ctx);
     wire_sms(win, ctx);
 
     // ---- mensajería
@@ -1239,7 +1277,8 @@ impl Ctx {
         let me = self.clone();
         self.rt.spawn(async move {
             let offset = if reset { 0 } else { me.gallery.lock().unwrap().items.len() };
-            match me.core.call("media_recent", json!({ "offset": offset, "limit": 36, "refresh": reset })).await {
+            let album = me.album.lock().unwrap().clone();
+            match me.core.call("media_recent", json!({ "offset": offset, "limit": 36, "refresh": reset, "album": album })).await {
                 Ok(r) => {
                     let new: Vec<PhotoMeta> = r["items"]
                         .as_array()
@@ -1872,4 +1911,147 @@ pub fn wire_sms(win: &AppWindow, ctx: &Arc<Ctx>) {
     win.on_sms_open(move |i| c.open_thread(i as usize));
     let c = ctx.clone();
     win.on_sms_send(move |t| c.sms_send(t.to_string()));
+}
+
+// ------------------------------------------------------------------------------------------------ álbumes e iconos de apps
+
+#[derive(Clone)]
+struct AlbumMeta {
+    name: String,
+    path: String,
+    count: i32,
+}
+
+fn decode_png(b64: &str) -> Option<slint::SharedPixelBuffer<slint::Rgba8Pixel>> {
+    let bytes = base64_decode(b64)?;
+    let mut dec = png::Decoder::new(std::io::Cursor::new(bytes));
+    dec.set_transformations(png::Transformations::EXPAND);
+    let mut r = dec.read_info().ok()?;
+    let mut buf = vec![0; r.output_buffer_size()];
+    let info = r.next_frame(&mut buf).ok()?;
+    let (w, h) = (info.width, info.height);
+    let mut out = slint::SharedPixelBuffer::<slint::Rgba8Pixel>::new(w, h);
+    let px = out.make_mut_slice();
+    match info.color_type {
+        png::ColorType::Rgba => {
+            for (o, p) in px.iter_mut().zip(buf.chunks_exact(4)) {
+                *o = slint::Rgba8Pixel { r: p[0], g: p[1], b: p[2], a: p[3] };
+            }
+        }
+        png::ColorType::Rgb => {
+            for (o, p) in px.iter_mut().zip(buf.chunks_exact(3)) {
+                *o = slint::Rgba8Pixel { r: p[0], g: p[1], b: p[2], a: 255 };
+            }
+        }
+        png::ColorType::GrayscaleAlpha => {
+            for (o, p) in px.iter_mut().zip(buf.chunks_exact(2)) {
+                *o = slint::Rgba8Pixel { r: p[0], g: p[0], b: p[0], a: p[1] };
+            }
+        }
+        png::ColorType::Grayscale => {
+            for (o, p) in px.iter_mut().zip(buf.iter()) {
+                *o = slint::Rgba8Pixel { r: *p, g: *p, b: *p, a: 255 };
+            }
+        }
+        _ => return None,
+    }
+    Some(out)
+}
+
+/// Una sola línea: los saltos de línea de una notificación (correos, resúmenes) se convierten en separadores y se acorta.
+fn one_line(s: &str, max: usize) -> String {
+    let t = s.split(['\n', '\r']).map(str::trim).filter(|p| !p.is_empty()).collect::<Vec<_>>().join("  ·  ");
+    if t.chars().count() > max {
+        format!("{}…", t.chars().take(max).collect::<String>())
+    } else {
+        t
+    }
+}
+
+impl Ctx {
+    fn apply_albums(self: &Arc<Self>) {
+        let list = self.albums.lock().unwrap().clone();
+        let sel = {
+            let cur = self.album.lock().unwrap().clone();
+            if cur.is_empty() { -1 } else { list.iter().position(|a| a.path == cur).map_or(-1, |i| i as i32) }
+        };
+        self.ui(move |w| {
+            w.set_albums(model(list.into_iter().map(|a| AlbumItem { name: a.name.into(), count: a.count, selected: false }).collect()));
+            w.set_album_selected(sel);
+        });
+    }
+
+    fn load_albums(self: &Arc<Self>) {
+        let me = self.clone();
+        self.rt.spawn(async move {
+            if let Ok(r) = me.core.call("media_albums", json!({ "refresh": true })).await {
+                let list: Vec<AlbumMeta> = r["items"]
+                    .as_array()
+                    .map(|a| {
+                        a.iter()
+                            .map(|x| AlbumMeta {
+                                name: x["name"].as_str().unwrap_or("").into(),
+                                path: x["path"].as_str().unwrap_or("").into(),
+                                count: x["count"].as_i64().unwrap_or(0) as i32,
+                            })
+                            .collect()
+                    })
+                    .unwrap_or_default();
+                *me.albums.lock().unwrap() = list;
+                me.apply_albums();
+            }
+        });
+    }
+
+    fn choose_album(self: &Arc<Self>, i: i32) {
+        let path = if i < 0 { String::new() } else { self.albums.lock().unwrap().get(i as usize).map(|a| a.path.clone()).unwrap_or_default() };
+        *self.album.lock().unwrap() = path;
+        self.apply_albums();
+        self.load_gallery(true);
+    }
+
+    /// Pide los iconos de las apps visibles que aún no los tienen (de 40 en 40) y refresca la lista a medida que llegan.
+    fn fetch_missing_icons(self: &Arc<Self>) {
+        let (show_sys, q) = (self.show_system.load(Ordering::SeqCst), self.apps_q.lock().unwrap().to_lowercase());
+        let missing: Vec<String> = {
+            let have = self.app_icons.lock().unwrap();
+            self.apps
+                .lock()
+                .unwrap()
+                .iter()
+                .filter(|a| (show_sys || !a.system) && (q.is_empty() || a.label.to_lowercase().contains(&q) || a.pkg.to_lowercase().contains(&q)))
+                .filter(|a| !have.contains_key(&a.pkg))
+                .take(240)
+                .map(|a| a.pkg.clone())
+                .collect()
+        };
+        if missing.is_empty() || self.icons_busy.swap(true, Ordering::SeqCst) {
+            return;
+        }
+        let me = self.clone();
+        self.rt.spawn(async move {
+            for chunk in missing.chunks(40) {
+                if let Ok(r) = me.core.call("icons", json!({ "pkgs": chunk })).await {
+                    let got: Vec<(String, slint::SharedPixelBuffer<slint::Rgba8Pixel>)> = r["icons"]
+                        .as_object()
+                        .map(|o| o.iter().filter_map(|(k, v)| decode_png(v.as_str()?).map(|b| (k.clone(), b))).collect())
+                        .unwrap_or_default();
+                    me.app_icons.lock().unwrap().extend(got);
+                    me.apply_apps(true);
+                }
+            }
+            me.icons_busy.store(false, Ordering::SeqCst);
+        });
+    }
+}
+
+pub fn wire_more(win: &AppWindow, ctx: &Arc<Ctx>) {
+    let c = ctx.clone();
+    win.on_gallery_album(move |i| c.choose_album(i));
+    let c = ctx.clone();
+    win.on_apps_search(move |q| {
+        *c.apps_q.lock().unwrap() = q.to_string();
+        c.apply_apps(false);
+        c.fetch_missing_icons();
+    });
 }

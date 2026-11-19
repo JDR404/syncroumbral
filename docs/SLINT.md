@@ -43,6 +43,12 @@ agente real a través de la interfaz Slint (clave, archivos, notificaciones, QR,
   instalar adb y scrcpy.
 - Bandeja del sistema (abrir, bloquear, salir), **una sola instancia** y cerrar la ventana la oculta.
 
+## Diseño
+
+- **Tipografía:** Inter (SIL OFL 1.1), incrustada (`desktop-slint/ui/fonts`, con su licencia). Más nítida que la del sistema con el renderizado por software.
+- **Iconos:** trazados vectoriales de Material Design (Apache 2.0) en `ui/common.slint`; no hay imágenes de iconos.
+- **Adaptación al ancho:** menú que se pliega solo por debajo de 1000 px, panel derecho desde 1480 px, ajustes en dos columnas desde ~980 px de contenido, cuadrículas (galería, apps) que reparten el ancho.
+
 ## Instalar
 
 ```

@@ -1,5 +1,18 @@
 # Cambios
 
+## 0.5.0 — 2026-11-19
+
+### Rediseño de la interfaz
+- **Notificaciones**: cada una en una sola línea (los correos y resúmenes ya no se montan unos sobre otros).
+- **Pantalla completa**: las páginas usan todo el ancho; en pantallas grandes aparece un **panel derecho** con la batería del móvil y **acciones rápidas** (portapapeles al móvil, hacer sonar, ir a Archivos o a la galería).
+- **Acciones rápidas siempre visibles** en la cabecera de cada página (antes el portapapeles estaba escondido en Ajustes).
+- **Galería por álbumes**: todas las carpetas con fotos o vídeos (cámara, capturas, WhatsApp, descargas...), no solo la cámara. La cuadrícula se ajusta al ancho.
+- **Aplicaciones**: mosaico con los **iconos reales** de las apps y búsqueda.
+- **Tipografía Inter** incrustada (más nítida que la del sistema) e **iconos vectoriales** en menú y botones; menú plegado solo con iconos.
+- **Ajustes**: cada tarjeta explica lo que hace; en pantalla ancha se reparten en dos columnas; las explicaciones ya no se cortan.
+- Móvil (0.5.0): la galería consulta MediaStore para ver todos los álbumes.
+- Licencias de terceros: fuente Inter (SIL OFL 1.1) e iconos Material Design (Apache 2.0); ver `docs/SLINT.md`.
+
 ## 0.4.0 — 2026-11-19
 
 ### Paridad con Phone Link

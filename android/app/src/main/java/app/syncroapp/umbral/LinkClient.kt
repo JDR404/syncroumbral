@@ -196,7 +196,7 @@ class LinkClient(private val ctx: Context) {
                 op.startsWith("call_") -> CallOps.handle(ctx, op, req)
                 op.startsWith("clip_") -> ClipOps.handle(ctx, op, req)
                 op == "keep_awake" -> PowerOps.handle(ctx, op, req)
-                op.startsWith("media_") -> MediaOps.handle(op, req)
+                op.startsWith("media_") -> MediaOps.handle(ctx, op, req)
                 op.startsWith("sms_") -> SmsOps.handle(ctx, op, req)
                 op in PHONE_OPS -> PhoneOps.handle(ctx, op, req)
                 op == "set_mode" -> { Store(ctx).advanced = req.getBoolean("advanced"); JSONObject() }
