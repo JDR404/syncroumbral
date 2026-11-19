@@ -2,6 +2,12 @@ name: Compilar Windows
 
 # Compila el .exe en un runner de GitHub a partir del código público. Es lo que permite a SignPath
 # verificar que el binario que firma sale de este repositorio (ver "Política de firma" en el README).
+#
+# Firma (SignPath Foundation): el trabajo "firmar" está preparado pero NO se ejecuta hasta que se configuren
+# en el repositorio (Settings > Secrets and variables > Actions):
+#   - Variables: SIGNPATH_ORGANIZATION_ID, SIGNPATH_PROJECT_SLUG, SIGNPATH_SIGNING_POLICY_SLUG
+#   - Secreto:   SIGNPATH_API_TOKEN
+# Mientras no existan, el flujo solo compila y publica el .exe sin firmar como artefacto.
 on:
   push:
     tags: ["v*"]
@@ -13,6 +19,8 @@ permissions:
 jobs:
   build:
     runs-on: windows-latest
+    outputs:
+      artifact-id: ${{ steps.upload.outputs.artifact-id }}
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
@@ -25,11 +33,36 @@ jobs:
       - name: Compilar
         working-directory: desktop-slint
         run: cargo build --release
+      - name: Huella SHA-256 del ejecutable
+        shell: pwsh
+        run: |
+          $h = (Get-FileHash desktop-slint/target/release/syncroumbral.exe -Algorithm SHA256).Hash.ToLower()
+          "syncroumbral.exe SHA-256 (sin firmar): $h" | Tee-Object -FilePath $env:GITHUB_STEP_SUMMARY -Append
       - id: upload
         uses: actions/upload-artifact@v4
         with:
           name: syncroumbral-windows-x64-sin-firmar
           path: desktop-slint/target/release/syncroumbral.exe
           if-no-files-found: error
-      # Cuando SignPath apruebe el proyecto se añade aquí el paso signpath/github-action-submit-signing-request
-      # (con el secreto SIGNPATH_API_TOKEN y el id de artefacto ${{ steps.upload.outputs.artifact-id }}).
+
+  firmar:
+    needs: build
+    runs-on: windows-latest
+    # Solo cuando SignPath ya aprobó el proyecto y se configuraron las variables.
+    if: ${{ vars.SIGNPATH_ORGANIZATION_ID != '' }}
+    steps:
+      - name: Firmar con SignPath
+        uses: signpath/github-action-submit-signing-request@v2
+        with:
+          api-token: ${{ secrets.SIGNPATH_API_TOKEN }}
+          organization-id: ${{ vars.SIGNPATH_ORGANIZATION_ID }}
+          project-slug: ${{ vars.SIGNPATH_PROJECT_SLUG }}
+          signing-policy-slug: ${{ vars.SIGNPATH_SIGNING_POLICY_SLUG }}
+          github-artifact-id: ${{ needs.build.outputs.artifact-id }}
+          wait-for-completion: true
+          output-artifact-directory: firmado
+      - uses: actions/upload-artifact@v4
+        with:
+          name: syncroumbral-windows-x64-firmado
+          path: firmado
+          if-no-files-found: error
