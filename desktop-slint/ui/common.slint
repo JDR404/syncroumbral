@@ -1,0 +1,282 @@
+import { ListView } from "std-widgets.slint";
+// Piezas comunes de la interfaz nativa de SyncroUmbral: paleta, tipos de datos y componentes sueltos.
+export global Theme {
+    out property <color> bg: #0e1415;
+    out property <color> surface: #171d1e;
+    out property <color> surface2: #1f2a2c;
+    out property <color> surface3: #2a3638;
+    out property <color> line: #3f4849;
+    out property <color> text: #dee3e5;
+    out property <color> muted: #a3adaf;
+    out property <color> primary: #4fd8eb;
+    out property <color> on-primary: #00363d;
+    out property <color> container: #004f58;
+    out property <color> on-container: #97f0ff;
+    out property <color> ok: #78dc77;
+    out property <color> bad: #ffb4ab;
+    out property <color> folder: #f2b93b;
+}
+
+export struct FileItem {
+    name: string,
+    meta: string,
+    dir: bool,
+    selected: bool,
+}
+
+export struct NotifAction {
+    index: int,
+    title: string,
+}
+
+export struct Notif {
+    key: string,
+    app: string,
+    title: string,
+    text: string,
+    time: string,
+    call: bool,
+    incoming: bool,
+    /// Índice de la acción de responder (-1 si no se puede responder).
+    reply-index: int,
+    reply-hint: string,
+    /// Botones de la notificación (reproductor, etc.), sin los de responder ni los de llamada.
+    actions: [NotifAction],
+}
+
+export struct AppItem {
+    pkg: string,
+    label: string,
+    system: bool,
+    open: bool,
+}
+
+export struct DeviceItem {
+    id: string,
+    name: string,
+}
+
+export struct ServiceItem {
+    id: string,
+    name: string,
+    has-session: bool,
+}
+
+// Botón en forma de píldora. kind: 0 principal, 1 tonal, 2 contorno, 3 peligro.
+export component Pill inherits Rectangle {
+    in property <string> label;
+    in property <int> kind: 0;
+    in property <bool> enabled: true;
+    callback clicked();
+    height: 36px;
+    min-width: 84px;
+    border-radius: 18px;
+    background: kind == 0 ? Theme.primary
+        : kind == 1 ? #0c5c66
+        : kind == 4 ? #1f5e2a
+        : kind == 5 ? #8c3a34
+        : touch.has-hover ? Theme.surface2 : transparent;
+    border-width: (kind == 2 || kind == 3) ? 1px : 0px;
+    border-color: kind == 3 ? #8c3a34 : Theme.line;
+    opacity: enabled ? 1.0 : 0.4;
+    animate background { duration: 120ms; }
+    HorizontalLayout {
+        padding-left: 18px;
+        padding-right: 18px;
+        alignment: center;
+        Text {
+            text: root.label;
+            color: kind == 0 ? Theme.on-primary : kind == 1 ? #b7f1fa : kind == 3 ? Theme.bad : Theme.text;
+            font-size: 13px;
+            font-weight: 500;
+            vertical-alignment: center;
+        }
+    }
+    touch := TouchArea {
+        enabled: root.enabled;
+        mouse-cursor: pointer;
+        clicked => { root.clicked(); }
+    }
+}
+
+// Interruptor con la paleta de la aplicación.
+export component Toggle inherits Rectangle {
+    in-out property <bool> checked;
+    callback toggled(bool);
+    width: 44px;
+    height: 24px;
+    border-radius: 12px;
+    background: checked ? Theme.primary : Theme.surface3;
+    border-width: checked ? 0px : 1px;
+    border-color: Theme.line;
+    animate background { duration: 120ms; }
+    Rectangle {
+        y: 3px;
+        x: root.checked ? 23px : 3px;
+        width: 18px;
+        height: 18px;
+        border-radius: 9px;
+        background: root.checked ? Theme.on-primary : Theme.muted;
+        animate x { duration: 120ms; easing: ease-out; }
+    }
+    TouchArea {
+        mouse-cursor: pointer;
+        clicked => { root.checked = !root.checked; root.toggled(root.checked); }
+    }
+}
+
+// Fila de ajuste: texto a la izquierda e interruptor a la derecha.
+export component SwitchRow inherits Rectangle {
+    in property <string> label;
+    in property <string> hint;
+    in-out property <bool> checked;
+    callback toggled(bool);
+    height: hint == "" ? 44px : 58px;
+    HorizontalLayout {
+        spacing: 16px;
+        VerticalLayout {
+            horizontal-stretch: 1;
+            alignment: center;
+            Text { text: root.label; color: Theme.text; overflow: elide; }
+            if root.hint != "": Text { text: root.hint; color: Theme.muted; font-size: 12px; overflow: elide; }
+        }
+        Toggle {
+            y: (parent.height - self.height) / 2;
+            checked <=> root.checked;
+            toggled(v) => { root.toggled(v); }
+        }
+    }
+}
+
+// Elemento del menú lateral.
+export component NavItem inherits Rectangle {
+    in property <string> label;
+    in property <bool> active;
+    in property <bool> collapsed;
+    in property <int> badge: 0;
+    in property <string> glyph;
+    callback clicked();
+    height: 44px;
+    border-radius: 22px;
+    background: active ? Theme.container : touch.has-hover ? Theme.surface : transparent;
+    animate background { duration: 120ms; }
+    HorizontalLayout {
+        padding-left: 18px;
+        padding-right: 14px;
+        spacing: 12px;
+        alignment: start;
+        Text {
+            text: root.collapsed ? root.glyph : root.label;
+            color: active ? Theme.on-container : Theme.text;
+            font-size: 14px;
+            font-weight: 500;
+            vertical-alignment: center;
+            horizontal-stretch: 1;
+            overflow: elide;
+        }
+        if root.badge > 0 && !root.collapsed: Rectangle {
+            width: 20px;
+            height: 20px;
+            y: (parent.height - self.height) / 2;
+            border-radius: 10px;
+            background: Theme.bad;
+            Text { text: root.badge; color: #410002; font-size: 11px; font-weight: 700; horizontal-alignment: center; vertical-alignment: center; }
+        }
+    }
+    touch := TouchArea { mouse-cursor: pointer; clicked => { root.clicked(); } }
+}
+
+export component FileRow inherits Rectangle {
+    in property <FileItem> item;
+    callback toggled();
+    callback opened();
+    height: 38px;
+    border-radius: 14px;
+    background: item.selected ? Theme.container : touch.has-hover ? Theme.surface2 : transparent;
+    HorizontalLayout {
+        padding-left: 14px;
+        padding-right: 14px;
+        spacing: 12px;
+        Rectangle {
+            width: 16px;
+            height: 16px;
+            y: (parent.height - self.height) / 2;
+            border-radius: item.dir ? 3px : 2px;
+            background: item.dir ? Theme.folder : transparent;
+            border-width: item.dir ? 0px : 1.5px;
+            border-color: item.selected ? Theme.on-container : Theme.muted;
+        }
+        Text {
+            text: item.name;
+            color: item.selected ? Theme.on-container : Theme.text;
+            vertical-alignment: center;
+            horizontal-stretch: 1;
+            overflow: elide;
+        }
+        Text {
+            text: item.meta;
+            color: item.selected ? Theme.on-container : Theme.muted;
+            font-size: 12px;
+            vertical-alignment: center;
+            horizontal-alignment: right;
+        }
+    }
+    touch := TouchArea {
+        mouse-cursor: pointer;
+        clicked => { root.toggled(); }
+        double-clicked => { root.opened(); }
+    }
+}
+
+export component Pane inherits Rectangle {
+    in property <string> title;
+    in property <string> path;
+    in property <[FileItem]> files;
+    in property <string> footer;
+    in property <string> message;
+    callback toggled(int);
+    callback opened(int);
+    callback up();
+    callback refresh();
+    background: Theme.surface;
+    border-radius: 20px;
+    clip: true;
+    VerticalLayout {
+        padding-top: 14px;
+        spacing: 6px;
+        HorizontalLayout {
+            padding-left: 18px;
+            padding-right: 14px;
+            spacing: 8px;
+            Text { text: root.title; font-size: 16px; color: Theme.text; vertical-alignment: center; horizontal-stretch: 1; overflow: elide; }
+            Pill { label: "Subir"; kind: 1; height: 30px; min-width: 64px; clicked => { root.up(); } }
+            Pill { label: "Actualizar"; kind: 1; height: 30px; min-width: 92px; clicked => { root.refresh(); } }
+        }
+        HorizontalLayout { padding-left: 18px; padding-right: 14px; height: 14px; Text { text: root.path; font-size: 11px; color: Theme.muted; overflow: elide; } }
+        if root.message != "": Rectangle {
+            vertical-stretch: 1;
+            Text {
+                x: 24px;
+                width: parent.width - 48px;
+                text: root.message;
+                color: Theme.bad;
+                wrap: word-wrap;
+                horizontal-alignment: center;
+                vertical-alignment: center;
+                height: parent.height;
+            }
+        }
+        if root.message == "": ListView {
+            vertical-stretch: 1;
+            for item[i] in root.files: FileRow {
+                item: item;
+                toggled => { root.toggled(i); }
+                opened => { root.opened(i); }
+            }
+        }
+        Rectangle {
+            height: 34px;
+            Text { x: 18px; text: root.footer; color: Theme.muted; font-size: 13px; vertical-alignment: center; overflow: elide; width: parent.width - 40px; }
+        }
+    }
+}

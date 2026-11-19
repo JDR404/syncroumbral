@@ -77,6 +77,7 @@ Detalle de módulos: [docs/ARQUITECTURA.md](docs/ARQUITECTURA.md). Mensajes del 
 desktop/
   ui/             Interfaz del PC: index.html, style.css, main.js, notif.js (tarjetas de notificación), toast.html/js (emergente)
   src-tauri/src/  Agente del PC en Rust: servidor, bloqueo, archivos, notificaciones, apps, audio, bandeja (ver ARQUITECTURA.md)
+desktop-slint/    SyncroUmbral con interfaz nativa Slint (sin WebView): comparte el agente de desktop/. Ver docs/SLINT.md
 android/
   app/src/main/   App del móvil en Kotlin: servicio de conexión, lector de notificaciones, archivos, llamadas, pantalla de gestión
 docs/
@@ -152,7 +153,7 @@ Fuentes: [Microsoft Phone Link](https://support.microsoft.com/en-US/phone-link?f
 
 ## Limitaciones conocidas
 
-- Con la ventana abierta SyncroUmbral usa unos 160 a 190 MB (WebView2); cerrada, unos 5 MB. La ventana emergente de notificaciones sube a unos 160 MB solo mientras se ve.
+- Versión Tauri (`desktop/`): con la ventana abierta usa unos 230 MB privados repartidos en 7 procesos (WebView2); cerrada, solo el agente en la bandeja (~7 MB privados). La versión nativa Slint (`desktop-slint/`) usa ~8 MB privados en un solo proceso con la ventana abierta y el móvil conectado (medido).
 - Solo Android. En iPhone no es posible listar ni gestionar apps.
 - Las llamadas se pueden contestar o rechazar desde el PC, pero **el audio no se puentea**: Windows no ofrece a las apps de terceros el papel de
   auricular Bluetooth y Android no permite capturar el audio de las llamadas normales. Sin SMS ni control remoto.
@@ -168,12 +169,12 @@ Fuentes: [Microsoft Phone Link](https://support.microsoft.com/en-US/phone-link?f
 
 | Fase | Qué | Por qué |
 |---|---|---|
-| Siguiente | **Interfaz nativa con [Slint](https://slint.dev)** en lugar de WebView2 | Bajar el consumo de unos 160–190 MB a decenas de MB y funcionar en cualquier PC, también sin GPU. La mensajería web se abriría solo bajo demanda en una ventana aislada de Edge (`--app`), no dentro de la app. Revisar la licencia de Slint (GPLv3, escritorio gratuito con atribución, o comercial) antes de distribuir |
+| Hecho en la rama `slint-prototype` | **Interfaz nativa con [Slint](https://slint.dev)** en lugar de WebView2 ([`desktop-slint/`](desktop-slint), ver [docs/SLINT.md](docs/SLINT.md)) | Un proceso y ~8 MB privados frente a 7 procesos y ~230 MB. Archivos, notificaciones con respuesta y controles, llamadas, apps del móvil en el PC, mensajería en una ventana aislada de Edge, vinculación por QR, bandeja e instancia única, probados con un Pixel 9 Pro. Revisar la licencia de Slint (GPLv3, escritorio gratuito con atribución, o comercial) antes de distribuir |
 | Después | Firma de código y actualizador firmado | Evitar SmartScreen y Play Protect y poder repartir parches (S-11 de la auditoría) |
 | Después | Bluetooth LE como segundo factor de proximidad | La presencia actual es "misma red", no "cerca" (S-03) |
 | Continuo | `cargo audit` y SBOM en la compilación, revisión externa | Antes de repartirla a terceros |
 
 ## Documentación
 
-[Protocolo](docs/PROTOCOLO.md) · [Arquitectura](docs/ARQUITECTURA.md) · [Instalación](docs/INSTALACION.md) ·
+[Protocolo](docs/PROTOCOLO.md) · [Arquitectura](docs/ARQUITECTURA.md) · [Interfaz Slint](docs/SLINT.md) · [Instalación](docs/INSTALACION.md) ·
 [Distribución](docs/DISTRIBUCION.md) · [Auditoría de seguridad](docs/AUDITORIA_SEGURIDAD.md) · [Cambios](CHANGELOG.md)

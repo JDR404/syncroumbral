@@ -10,7 +10,7 @@ use futures_util::stream::FuturesUnordered;
 use futures_util::StreamExt;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
-use tauri::{AppHandle, Emitter, Runtime};
+use crate::ui::Ui;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
 /// Borra el archivo temporal si la transferencia no llega a terminar (error, cancelación o futuro descartado).
@@ -79,8 +79,8 @@ where
 /// Archivos que se transfieren a la vez. Con muchos archivos pequeños el tiempo lo dominan las esperas, no el ancho de banda.
 const PARALLEL: usize = 6;
 
-struct Job<'a, R: Runtime> {
-    h: &'a AppHandle<R>,
+struct Job<'a, H: Ui> {
+    h: &'a H,
     core: &'a Arc<Core>,
     id: u64,
     epoch: u64,
@@ -89,7 +89,7 @@ struct Job<'a, R: Runtime> {
     total: AtomicU64,
 }
 
-impl<R: Runtime> Job<'_, R> {
+impl<H: Ui> Job<'_, H> {
     fn emit(&self, state: &'static str, msg: &str) {
         let _ = self.h.emit(
             "transfer",
@@ -171,7 +171,7 @@ fn join_remote(base: &str, name: &str) -> String {
 
 // ---------------------------------------------------------------- móvil -> PC
 
-pub async fn run_download<R: Runtime>(h: AppHandle<R>, core: Arc<Core>, id: u64, items: Vec<Item>, local_dir: String) {
+pub async fn run_download<H: Ui>(h: H, core: Arc<Core>, id: u64, items: Vec<Item>, local_dir: String) {
     let label = match items.as_slice() {
         [one] => one.name.clone(),
         many => format!("{} elementos", many.len()),
@@ -185,7 +185,7 @@ pub async fn run_download<R: Runtime>(h: AppHandle<R>, core: Arc<Core>, id: u64,
     }
 }
 
-async fn download<R: Runtime>(job: &Job<'_, R>, items: Vec<Item>, dest_dir: PathBuf) -> Result<(), String> {
+async fn download<H: Ui>(job: &Job<'_, H>, items: Vec<Item>, dest_dir: PathBuf) -> Result<(), String> {
     if !dest_dir.is_dir() {
         return Err("La carpeta de destino no existe".into());
     }
@@ -227,7 +227,7 @@ async fn download<R: Runtime>(job: &Job<'_, R>, items: Vec<Item>, dest_dir: Path
     run_parallel(&files, |f| download_file(job, f)).await
 }
 
-async fn download_file<R: Runtime>(job: &Job<'_, R>, f: &FileTask) -> Result<(), String> {
+async fn download_file<H: Ui>(job: &Job<'_, H>, f: &FileTask) -> Result<(), String> {
     let part = format!("{}{PART}", f.dst);
     // La guarda se declara antes que el archivo: al salir, primero se cierra el archivo y luego se borra el temporal.
     let mut guard = PartGuard { path: PathBuf::from(&part), armed: true };
@@ -274,7 +274,7 @@ async fn download_file<R: Runtime>(job: &Job<'_, R>, f: &FileTask) -> Result<(),
 
 // ---------------------------------------------------------------- PC -> móvil
 
-pub async fn run_upload<R: Runtime>(h: AppHandle<R>, core: Arc<Core>, id: u64, items: Vec<Item>, remote_dir: String) {
+pub async fn run_upload<H: Ui>(h: H, core: Arc<Core>, id: u64, items: Vec<Item>, remote_dir: String) {
     let label = match items.as_slice() {
         [one] => one.name.clone(),
         many => format!("{} elementos", many.len()),
@@ -288,7 +288,7 @@ pub async fn run_upload<R: Runtime>(h: AppHandle<R>, core: Arc<Core>, id: u64, i
     }
 }
 
-async fn upload<R: Runtime>(job: &Job<'_, R>, items: Vec<Item>, remote_dir: String) -> Result<(), String> {
+async fn upload<H: Ui>(job: &Job<'_, H>, items: Vec<Item>, remote_dir: String) -> Result<(), String> {
     let existing = job.core.call("ls", json!({"path": remote_dir})).await?;
     let taken: HashSet<String> = existing["items"]
         .as_array()
@@ -355,7 +355,7 @@ async fn upload<R: Runtime>(job: &Job<'_, R>, items: Vec<Item>, remote_dir: Stri
     result
 }
 
-async fn upload_file<R: Runtime>(job: &Job<'_, R>, f: &FileTask) -> Result<(), String> {
+async fn upload_file<H: Ui>(job: &Job<'_, H>, f: &FileTask) -> Result<(), String> {
     let mut input = tokio::fs::File::open(Path::new(&f.src)).await.map_err(|e| e.to_string())?;
     let mut offset = 0u64;
     let mut buf = vec![0u8; CHUNK];

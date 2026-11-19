@@ -6,6 +6,8 @@ edition = "2021"
 [features]
 # Solo para pruebas: abre un puerto de depuración en las ventanas web. No usar en la versión instalada.
 webdebug = []
+# Reservado: la interfaz Slint comparte estos archivos y lo activa.
+slint-ui = []
 
 [build-dependencies]
 tauri-build = { version = "2", features = [] }

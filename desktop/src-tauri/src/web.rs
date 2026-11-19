@@ -8,21 +8,7 @@ use std::path::PathBuf;
 use tauri::webview::WebviewBuilder;
 use tauri::{AppHandle, LogicalPosition, LogicalSize, Manager, Rect, Runtime, Url, WebviewUrl};
 
-struct Service {
-    id: &'static str,
-    name: &'static str,
-    url: &'static str,
-    /// Dominios por los que puede navegar la ventana (con sus subdominios).
-    hosts: &'static [&'static str],
-}
-
-const SERVICES: &[Service] = &[
-    Service { id: "whatsapp", name: "WhatsApp", url: "https://web.whatsapp.com/", hosts: &["whatsapp.com", "whatsapp.net", "fbcdn.net"] },
-    Service { id: "instagram", name: "Instagram", url: "https://www.instagram.com/", hosts: &["instagram.com", "cdninstagram.com", "fbcdn.net", "facebook.com"] },
-    Service { id: "facebook", name: "Facebook", url: "https://www.facebook.com/", hosts: &["facebook.com", "facebook.net", "fbcdn.net", "fbsbx.com"] },
-    Service { id: "messenger", name: "Messenger", url: "https://www.messenger.com/", hosts: &["messenger.com", "facebook.com", "fbcdn.net"] },
-    Service { id: "telegram", name: "Telegram", url: "https://web.telegram.org/a/", hosts: &["telegram.org", "t.me", "telegram.me"] },
-];
+use crate::services::{find, SERVICES};
 
 #[derive(Serialize)]
 pub struct ServiceInfo {
@@ -38,10 +24,6 @@ fn label(id: &str) -> String {
 
 fn data_dir(core: &Core, id: &str) -> PathBuf {
     core.dir.join("web").join(id)
-}
-
-fn find(id: &str) -> Option<&'static Service> {
-    SERVICES.iter().find(|s| s.id == id)
 }
 
 pub fn list<R: Runtime>(h: &AppHandle<R>, core: &Core) -> Vec<ServiceInfo> {
