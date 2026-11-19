@@ -24,7 +24,7 @@ object FileOps {
         if (Build.VERSION.SDK_INT >= 30) Environment.isExternalStorageManager()
         else root.canRead()
 
-    private fun resolve(path: String): File {
+    internal fun resolve(path: String): File {
         val rel = path.trim().trimStart('/', '\\')
         val f = (if (rel.isEmpty()) root else File(root, rel)).canonicalFile
         require(f.path == root.path || f.path.startsWith(root.path + File.separator)) {
@@ -33,7 +33,7 @@ object FileOps {
         return f
     }
 
-    private fun relative(f: File): String =
+    internal fun relative(f: File): String =
         if (f.path == root.path) "" else f.path.removePrefix(root.path + File.separator).replace('\\', '/')
 
     /** Ejecuta la operación `op`. Lanza excepción con un mensaje legible si falla. */

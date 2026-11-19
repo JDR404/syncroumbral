@@ -46,3 +46,8 @@ pub fn set_autostart(on: bool) -> Result<(), String> {
         Err(String::from_utf8_lossy(&out.stderr).trim().to_string())
     }
 }
+
+/// Ejecuta `reg` con esos argumentos; true si salió bien.
+pub fn reg_run(args: &[&str]) -> bool {
+    reg(args).map(|o| o.status.success()).unwrap_or(false)
+}

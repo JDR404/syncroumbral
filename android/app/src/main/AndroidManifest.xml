@@ -15,6 +15,13 @@
     <uses-permission android:name="android.permission.WAKE_LOCK" />
     <!-- Contestar y colgar llamadas normales desde el PC (TelecomManager). -->
     <uses-permission android:name="android.permission.ANSWER_PHONE_CALLS" />
+    <!-- Contactos, historial y marcar desde el PC. Cada uno se concede aparte en la pestaña Permisos y es opcional. -->
+    <uses-permission android:name="android.permission.READ_CONTACTS" />
+    <uses-permission android:name="android.permission.CALL_PHONE" />
+    <uses-permission android:name="android.permission.READ_CALL_LOG" />
+    <!-- Leer y enviar SMS desde el PC (solo SMS; opcional, se concede aparte). -->
+    <uses-permission android:name="android.permission.READ_SMS" />
+    <uses-permission android:name="android.permission.SEND_SMS" />
     <!-- Contestar llamadas de WhatsApp y similares: contestar abre la pantalla de la llamada y, sin este permiso, Android 10 o
          superior lo bloquea desde segundo plano (comprobado en un Pixel). Es un permiso especial que viene apagado: lo concede
          el usuario desde la lista de permisos de la app. Junto al acceso a notificaciones puede hacer desconfiar a Play Protect. -->
@@ -58,6 +65,13 @@
                 <data android:mimeType="*/*" />
             </intent-filter>
         </activity>
+
+        <activity
+            android:name=".ClipSendActivity"
+            android:exported="false"
+            android:excludeFromRecents="true"
+            android:noHistory="true"
+            android:theme="@android:style/Theme.Translucent.NoTitleBar" />
 
         <service
             android:name=".LinkService"

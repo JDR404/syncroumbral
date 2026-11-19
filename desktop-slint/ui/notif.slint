@@ -10,9 +10,10 @@ export component NotifCard inherits Rectangle {
     callback answer();
     callback end();
     callback action(int);
+    callback copy-code(string);
     background: card-touch.has-hover ? Theme.surface2 : Theme.surface;
     border-radius: 16px;
-    height: 64px + (n.reply-index >= 0 ? 46px : 0px) + (n.call ? 48px : 0px) + (n.actions.length > 0 && !n.call ? 42px : 0px);
+    height: 64px + (n.reply-index >= 0 ? 46px : 0px) + (n.call ? 48px : 0px) + (n.actions.length > 0 && !n.call ? 42px : 0px) + (n.code != "" ? 42px : 0px);
     animate background { duration: 120ms; }
     card-touch := TouchArea { }
     VerticalLayout {
@@ -63,6 +64,12 @@ export component NotifCard inherits Rectangle {
                 accepted(t) => { root.reply(t); self.text = ""; }
             }
             Pill { label: "Enviar"; kind: 1; height: 34px; min-width: 70px; y: 2px; clicked => { root.reply(input.text); input.text = ""; } }
+        }
+        if n.code != "": HorizontalLayout {
+            spacing: 8px;
+            height: 34px;
+            alignment: start;
+            Pill { label: "Copiar código " + n.code; kind: 4; height: 32px; clicked => { root.copy-code(n.code); } }
         }
         if n.actions.length > 0 && !n.call: HorizontalLayout {
             spacing: 8px;

@@ -1,5 +1,26 @@
 # Cambios
 
+## 0.4.0 — 2026-11-19
+
+### Paridad con Phone Link
+- **Galería** con miniaturas y vídeos, "cargar más" y traer lo seleccionado al PC.
+- **Contactos, llamadas y historial**: marcar desde el PC, llamar a un contacto o devolver una llamada.
+- **Mensajes SMS**: conversaciones y mensajes; enviar. Solo SMS (ver [docs/FUNCIONES.md](docs/FUNCIONES.md)).
+- **Arrastrar y soltar** archivos desde el Explorador sobre la ventana, y **«Enviar al móvil con SyncroUmbral»** en el clic derecho.
+- **Portapapeles** en ambos sentidos: botón «Enviar portapapeles al móvil» en el PC y «Copiar al PC» en la notificación del móvil.
+
+### Mejoras propias
+- **Códigos de verificación**: botón «Copiar código» en notificaciones y SMS.
+- **Buscar el móvil**: lo hace sonar al máximo hasta un minuto.
+- **Bloquear Windows al alejarte** (opcional), **ocultar el contenido de los avisos** y **silenciar avisos por palabras**.
+- **Copia automática de fotos nuevas** al PC (opcional).
+- **Actualización automática**: aviso de versión nueva y reemplazo con verificación de huella.
+
+### Interfaz y agente
+- Nuevas páginas Galería, Llamadas y Mensajes; ajustes en tarjetas (Seguridad y avisos, Copias y envío rápido, Acciones del móvil).
+- Icono de la ventana y del ejecutable.
+- Móvil (0.4.0): permisos opcionales de contactos, llamar, registro de llamadas y SMS en la pestaña Permisos.
+
 ## 0.3.0 — 2026-11-19
 
 ### Interfaz nativa con Slint (sin WebView)

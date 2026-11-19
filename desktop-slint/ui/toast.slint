@@ -17,6 +17,7 @@ export component ToastWindow inherits Window {
     callback answer(string);
     callback end(string);
     callback action(string, int);
+    callback copy-code(string);
     callback open-app();
     width: 400px;
     VerticalLayout {
@@ -33,6 +34,7 @@ export component ToastWindow inherits Window {
                 answer => { root.answer(n.key); }
                 end => { root.end(n.key); }
                 action(i) => { root.action(n.key, i); }
+                copy-code(c) => { root.copy-code(c); }
             }
         }
     }

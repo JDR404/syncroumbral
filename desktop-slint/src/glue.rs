@@ -4,7 +4,7 @@
 use crate::core::Core;
 use crate::transfer::Item;
 use crate::ui::Ui;
-use crate::{AppItem, AppWindow, DeviceItem, FileItem, Notif, NotifAction, ServiceItem, ToastWindow};
+use crate::{AppItem, AppWindow, CallItem, ContactItem, DeviceItem, FileItem, MsgItem, Notif, NotifAction, Photo, ServiceItem, ThreadItem, ToastWindow};
 use serde::Serialize;
 use serde_json::{json, Value};
 use slint::{ComponentHandle, Model, ModelRc, VecModel};
@@ -46,6 +46,12 @@ struct AppEntry {
 }
 
 pub struct Ctx {
+    threads: Mutex<Vec<(String, String)>>,
+    sms_open: Mutex<Option<String>>,
+    sms_log: Mutex<Vec<(String, bool, String)>>,
+    settings: Mutex<Settings>,
+    last_present: std::sync::atomic::AtomicBool,
+    gallery: Mutex<Gallery>,
     pub core: Arc<Core>,
     rt: tokio::runtime::Handle,
     win: slint::Weak<AppWindow>,
@@ -113,6 +119,88 @@ impl Ui for SlintUi {
     }
 }
 
+
+// ------------------------------------------------------------------------------------------------ códigos 2FA
+
+/// Código de verificación (4 a 8 dígitos, o 3+3 separados) si el texto habla de códigos; vacío si no.
+pub fn extract_code(s: &str) -> String {
+    let l = s.to_lowercase();
+    const KEYS: [&str; 12] = ["código", "codigo", "code", "verific", "otp", "clave", "pin", "contraseña", "password", "one-time", "único", "seguridad"];
+    if !KEYS.iter().any(|k| l.contains(k)) {
+        return String::new();
+    }
+    let c: Vec<char> = s.chars().collect();
+    let mut i = 0;
+    while i < c.len() {
+        if !c[i].is_ascii_digit() {
+            i += 1;
+            continue;
+        }
+        let st = i;
+        while i < c.len() && c[i].is_ascii_digit() {
+            i += 1;
+        }
+        let run = i - st;
+        if (4..=8).contains(&run) {
+            return c[st..i].iter().collect();
+        }
+        if run == 3 && i + 1 < c.len() && (c[i] == '-' || c[i] == ' ') && c[i + 1].is_ascii_digit() {
+            let mut j = i + 1;
+            while j < c.len() && c[j].is_ascii_digit() {
+                j += 1;
+            }
+            if j - (i + 1) == 3 {
+                return c[st..i].iter().chain(c[i + 1..j].iter()).collect();
+            }
+        }
+    }
+    String::new()
+}
+
+fn decode_thumb(b64: &str) -> Option<slint::SharedPixelBuffer<slint::Rgba8Pixel>> {
+    let bytes = base64_decode(b64)?;
+    let mut d = jpeg_decoder::Decoder::new(&bytes[..]);
+    let px = d.decode().ok()?;
+    let info = d.info()?;
+    let (w, h) = (info.width as u32, info.height as u32);
+    let mut buf = slint::SharedPixelBuffer::<slint::Rgba8Pixel>::new(w, h);
+    let out = buf.make_mut_slice();
+    match info.pixel_format {
+        jpeg_decoder::PixelFormat::RGB24 => {
+            for (o, p) in out.iter_mut().zip(px.chunks_exact(3)) {
+                *o = slint::Rgba8Pixel { r: p[0], g: p[1], b: p[2], a: 255 };
+            }
+        }
+        jpeg_decoder::PixelFormat::L8 => {
+            for (o, p) in out.iter_mut().zip(px.iter()) {
+                *o = slint::Rgba8Pixel { r: *p, g: *p, b: *p, a: 255 };
+            }
+        }
+        _ => return None,
+    }
+    Some(buf)
+}
+
+fn base64_decode(s: &str) -> Option<Vec<u8>> {
+    use base64::Engine;
+    base64::engine::general_purpose::STANDARD.decode(s).ok()
+}
+
+#[derive(Clone)]
+struct PhotoMeta {
+    path: String,
+    name: String,
+    video: bool,
+    size: u64,
+    selected: bool,
+}
+
+#[derive(Default)]
+struct Gallery {
+    items: Vec<PhotoMeta>,
+    thumbs: HashMap<String, slint::SharedPixelBuffer<slint::Rgba8Pixel>>,
+}
+
 // ------------------------------------------------------------------------------------------------ utilidades
 
 fn fmt_size(n: u64) -> String {
@@ -169,6 +257,7 @@ fn notif_of(v: &Value) -> Notif {
         incoming: v["incoming"] == true,
         reply_index: reply.and_then(|r| r["index"].as_i64()).map_or(-1, |i| i as i32),
         reply_hint: reply.and_then(|r| r["hint"].as_str()).unwrap_or("").into(),
+        code: extract_code(&format!("{} {}", v["title"].as_str().unwrap_or(""), v["text"].as_str().unwrap_or(""))).into(),
         actions: model(
             v["actions"]
                 .as_array()
@@ -182,6 +271,17 @@ fn notif_of(v: &Value) -> Notif {
                 .unwrap_or_default(),
         ),
     }
+}
+
+/// Igual que `notif_of`, pero sin título, texto ni código si el usuario pidió ocultar el contenido.
+fn notif_for_display(v: &Value, hide: bool) -> Notif {
+    let mut n = notif_of(v);
+    if hide && !n.call {
+        n.title = n.app.clone();
+        n.text = "Contenido oculto".into();
+        n.code = "".into();
+    }
+    n
 }
 
 fn join_pc(base: &str, name: &str) -> String {
@@ -231,6 +331,12 @@ fn qr_image(payload: &str) -> Option<slint::Image> {
 impl Ctx {
     pub fn new(core: Arc<Core>, rt: tokio::runtime::Handle, win: slint::Weak<AppWindow>) -> Arc<Self> {
         Arc::new(Ctx {
+            threads: Mutex::new(Vec::new()),
+            sms_open: Mutex::new(None),
+            sms_log: Mutex::new(Vec::new()),
+            settings: Mutex::new(load_settings(&core.dir)),
+            last_present: std::sync::atomic::AtomicBool::new(false),
+            gallery: Mutex::new(Gallery::default()),
             core,
             rt,
             win,
@@ -274,6 +380,7 @@ impl Ctx {
 
     pub fn push_state(self: &Arc<Self>) {
         let s = self.core.snapshot();
+        self.on_presence(s.present);
         let (advanced, mute) = (self.core.advanced(), self.core.mute_on_call());
         let me = self.clone();
         self.ui(move |w| {
@@ -310,6 +417,18 @@ impl Ctx {
     fn on_locked(self: &Arc<Self>, w: &AppWindow) {
         *self.files.lock().unwrap() = Files::default();
         self.apps.lock().unwrap().clear();
+        *self.gallery.lock().unwrap() = Gallery::default();
+        self.threads.lock().unwrap().clear();
+        self.sms_log.lock().unwrap().clear();
+        *self.sms_open.lock().unwrap() = None;
+        w.set_threads(model(vec![]));
+        w.set_messages(model(vec![]));
+        w.set_sms_title("".into());
+        w.set_sms_selected(-1);
+        w.set_photos(model(vec![]));
+        w.set_contacts(model(vec![]));
+        w.set_call_log(model(vec![]));
+        w.set_ringing(false);
         w.set_notifs(model(vec![]));
         w.set_pc_files(model(vec![]));
         w.set_phone_files(model(vec![]));
@@ -497,9 +616,10 @@ impl Ctx {
     pub fn push_notifs(self: &Arc<Self>) {
         let st = self.core.notifs_state();
         let items: Vec<Value> = st["items"].as_array().cloned().unwrap_or_default();
+        let hide = self.hide_content();
         let hint = if st["granted"] == false { "El móvil no ha dado permiso para leer notificaciones." } else { "" };
         self.ui(move |w| {
-            w.set_notifs(model(items.iter().map(notif_of).collect()));
+            w.set_notifs(model(items.iter().map(|v| notif_for_display(v, hide)).collect()));
             w.set_notif_hint(hint.into());
         });
     }
@@ -521,7 +641,15 @@ impl Ctx {
 
     /// Ventana emergente: abajo a la derecha del área útil, sin robar el foco, y se cierra sola a los 12 s (no con una llamada).
     fn toast_on_ui(self: &Arc<Self>) {
-        let items: Vec<Notif> = self.core.popup_items().iter().take(4).map(notif_of).collect();
+        let hide = self.hide_content();
+        let items: Vec<Notif> = self
+            .core
+            .popup_items()
+            .iter()
+            .filter(|v| v["call"] == true || !self.muted_by_words(v["title"].as_str().unwrap_or(""), v["text"].as_str().unwrap_or("")))
+            .take(4)
+            .map(|v| notif_for_display(v, hide))
+            .collect();
         if items.is_empty() {
             TOAST.with(|t| {
                 if let Some(w) = t.borrow_mut().take() {
@@ -555,6 +683,8 @@ impl Ctx {
                 w.on_end(move |key| c.call_op("call_end", key.to_string(), false));
                 let c = me.clone();
                 w.on_action(move |key, i| c.notif_action(key.to_string(), i));
+                let c = me.clone();
+                w.on_copy_code(move |code| c.copy_code(code.to_string()));
                 w
             });
             w.set_items(model(items));
@@ -812,11 +942,21 @@ pub fn wire(win: &AppWindow, ctx: &Arc<Ctx>) {
         }
         1 => c.push_notifs(),
         2 => {
+            if c.gallery.lock().unwrap().items.is_empty() {
+                c.load_gallery(true);
+            }
+        }
+        3 => {
+            c.load_contacts(String::new());
+            c.load_calllog();
+        }
+        7 => c.load_threads(),
+        4 => {
             if c.apps.lock().unwrap().is_empty() {
                 c.load_apps();
             }
         }
-        3 => {
+        5 => {
             let list = c.services();
             c.ui(move |w| w.set_services(model(list)));
         }
@@ -960,6 +1100,34 @@ pub fn wire(win: &AppWindow, ctx: &Arc<Ctx>) {
         });
     });
 
+    // ---- galería, llamadas y acciones
+    let c = ctx.clone();
+    win.on_gallery_refresh(move || c.load_gallery(true));
+    let c = ctx.clone();
+    win.on_gallery_more(move || c.load_gallery(false));
+    let c = ctx.clone();
+    win.on_gallery_toggle(move |i| {
+        if let Some(m) = c.gallery.lock().unwrap().items.get_mut(i as usize) {
+            m.selected = !m.selected;
+        }
+        c.apply_gallery();
+    });
+    let c = ctx.clone();
+    win.on_gallery_fetch(move || c.gallery_fetch());
+    let c = ctx.clone();
+    win.on_dial(move |n| c.dial(n.to_string()));
+    let c = ctx.clone();
+    win.on_contacts_search(move |q| c.load_contacts(q.to_string()));
+    let c = ctx.clone();
+    win.on_ring_phone(move |on| c.ring_phone(on));
+    let c = ctx.clone();
+    win.on_send_clipboard(move || c.send_clipboard());
+    let c = ctx.clone();
+    win.on_copy_code(move |code| c.copy_code(code.to_string()));
+
+    wire_extras(win, ctx);
+    wire_sms(win, ctx);
+
     // ---- mensajería
     let c = ctx.clone();
     win.on_web_open(move |i| c.web_open(i as usize));
@@ -1040,4 +1208,668 @@ impl Ctx {
             }
         });
     }
+}
+
+impl Ctx {
+    // ---------------------------------------------------------------- galería
+
+    fn apply_gallery(self: &Arc<Self>) {
+        let (rows, selected): (Vec<(PhotoMeta, Option<slint::SharedPixelBuffer<slint::Rgba8Pixel>>)>, usize) = {
+            let g = self.gallery.lock().unwrap();
+            (g.items.iter().map(|m| (m.clone(), g.thumbs.get(&m.path).cloned())).collect(), g.items.iter().filter(|m| m.selected).count())
+        };
+        self.ui(move |w| {
+            let photos: Vec<Photo> = rows
+                .into_iter()
+                .map(|(m, t)| Photo {
+                    path: m.path.into(),
+                    name: m.name.into(),
+                    video: m.video,
+                    selected: m.selected,
+                    has_thumb: t.is_some(),
+                    thumb: t.map(slint::Image::from_rgba8).unwrap_or_default(),
+                })
+                .collect();
+            w.set_photos(model(photos));
+            w.set_gallery_selected(selected as i32);
+        });
+    }
+
+    fn load_gallery(self: &Arc<Self>, reset: bool) {
+        let me = self.clone();
+        self.rt.spawn(async move {
+            let offset = if reset { 0 } else { me.gallery.lock().unwrap().items.len() };
+            match me.core.call("media_recent", json!({ "offset": offset, "limit": 36, "refresh": reset })).await {
+                Ok(r) => {
+                    let new: Vec<PhotoMeta> = r["items"]
+                        .as_array()
+                        .map(|a| {
+                            a.iter()
+                                .map(|x| PhotoMeta {
+                                    path: x["path"].as_str().unwrap_or("").into(),
+                                    name: x["name"].as_str().unwrap_or("").into(),
+                                    video: x["video"] == true,
+                                    size: x["size"].as_u64().unwrap_or(0),
+                                    selected: false,
+                                })
+                                .collect()
+                        })
+                        .unwrap_or_default();
+                    let total = r["total"].as_u64().unwrap_or(0);
+                    {
+                        let mut g = me.gallery.lock().unwrap();
+                        if reset {
+                            *g = Gallery::default();
+                        }
+                        g.items.extend(new.iter().cloned());
+                    }
+                    let shown = me.gallery.lock().unwrap().items.len();
+                    me.ui(move |w| w.set_gallery_message(if total == 0 { "No hay fotos ni vídeos en DCIM, Pictures o Movies.".into() } else { format!("{shown} de {total}").into() }));
+                    me.apply_gallery();
+                    // Miniaturas en tandas de 12 (así aparecen poco a poco).
+                    for chunk in new.chunks(12) {
+                        let paths: Vec<&str> = chunk.iter().map(|m| m.path.as_str()).collect();
+                        if let Ok(t) = me.core.call("media_thumb", json!({ "paths": paths })).await {
+                            let decoded: Vec<(String, slint::SharedPixelBuffer<slint::Rgba8Pixel>)> = t["thumbs"]
+                                .as_object()
+                                .map(|o| o.iter().filter_map(|(k, v)| decode_thumb(v.as_str()?).map(|b| (k.clone(), b))).collect())
+                                .unwrap_or_default();
+                            me.gallery.lock().unwrap().thumbs.extend(decoded);
+                            me.apply_gallery();
+                        }
+                    }
+                }
+                Err(e) => {
+                    let e = if me.core.snapshot().present { e } else { "El móvil no está conectado.".to_string() };
+                    me.ui(move |w| w.set_gallery_message(e.into()));
+                }
+            }
+        });
+    }
+
+    fn gallery_fetch(self: &Arc<Self>) {
+        let items: Vec<Item> = self
+            .gallery
+            .lock()
+            .unwrap()
+            .items
+            .iter()
+            .filter(|m| m.selected)
+            .map(|m| Item { path: m.path.clone(), name: m.name.clone(), dir: false, size: m.size })
+            .collect();
+        if items.is_empty() {
+            return;
+        }
+        let dir = crate::share::inbox_dir().join("Galería");
+        let _ = std::fs::create_dir_all(&dir);
+        self.status(format!("Trayendo {} archivo(s) a {}", items.len(), dir.display()));
+        self.xfer_kind.store(2, Ordering::SeqCst);
+        let (id, core) = (self.core.next_job_id(), self.core.clone());
+        self.rt.spawn(crate::transfer::run_download(self.sink(), core, id, items, dir.to_string_lossy().into_owned()));
+    }
+
+    // ---------------------------------------------------------------- llamadas y contactos
+
+    fn load_contacts(self: &Arc<Self>, q: String) {
+        let me = self.clone();
+        self.rt.spawn(async move {
+            match me.core.call("contacts", json!({ "q": q })).await {
+                Ok(r) => {
+                    let rows: Vec<(String, String)> = r["items"]
+                        .as_array()
+                        .map(|a| {
+                            a.iter()
+                                .flat_map(|c| {
+                                    let name = c["name"].as_str().unwrap_or("").to_string();
+                                    c["numbers"].as_array().cloned().unwrap_or_default().into_iter().map(move |n| (name.clone(), n.as_str().unwrap_or("").to_string()))
+                                })
+                                .collect()
+                        })
+                        .unwrap_or_default();
+                    me.ui(move |w| {
+                        w.set_contacts(model(rows.into_iter().map(|(name, number)| ContactItem { name: name.into(), number: number.into() }).collect()));
+                        w.set_calls_message("".into());
+                    });
+                }
+                Err(e) => {
+                    let e = if me.core.snapshot().present { e } else { "El móvil no está conectado.".to_string() };
+                    me.ui(move |w| w.set_calls_message(e.into()));
+                }
+            }
+        });
+    }
+
+    fn load_calllog(self: &Arc<Self>) {
+        let me = self.clone();
+        self.rt.spawn(async move {
+            if let Ok(r) = me.core.call("calllog", json!({ "limit": 80 })).await {
+                let rows: Vec<CallItem> = r["items"]
+                    .as_array()
+                    .map(|a| {
+                        a.iter()
+                            .map(|x| {
+                                let number = x["number"].as_str().unwrap_or("").to_string();
+                                let name = x["name"].as_str().unwrap_or("");
+                                let kind = match x["type"].as_i64().unwrap_or(0) {
+                                    1 => 1,
+                                    2 => 2,
+                                    _ => 3,
+                                };
+                                let secs = x["secs"].as_u64().unwrap_or(0);
+                                let label = ["", "Entrante", "Saliente", "Perdida"][kind as usize];
+                                let dur = if secs > 0 { format!(" · {}:{:02}", secs / 60, secs % 60) } else { String::new() };
+                                CallItem {
+                                    title: if name.is_empty() { number.clone() } else { name.to_string() }.into(),
+                                    detail: format!("{label} · {}{dur}", ago(x["date"].as_u64().unwrap_or(0))).into(),
+                                    number: number.into(),
+                                    kind,
+                                }
+                            })
+                            .collect()
+                    })
+                    .unwrap_or_default();
+                me.ui(move |w| w.set_call_log(model(rows)));
+            }
+        });
+    }
+
+    fn dial(self: &Arc<Self>, number: String) {
+        let number = number.trim().to_string();
+        if number.is_empty() {
+            self.status("Escribe un número");
+            return;
+        }
+        let me = self.clone();
+        self.rt.spawn(async move {
+            match me.core.call("dial", json!({ "number": number })).await {
+                Ok(_) => me.status(format!("Llamando a {number}")),
+                Err(e) => me.status(e),
+            }
+        });
+    }
+
+    // ---------------------------------------------------------------- acciones del móvil
+
+    fn ring_phone(self: &Arc<Self>, on: bool) {
+        let me = self.clone();
+        self.rt.spawn(async move {
+            match me.core.call("find_ring", json!({ "on": on })).await {
+                Ok(r) => {
+                    let ringing = r["on"] == true;
+                    me.ui(move |w| w.set_ringing(ringing));
+                    if ringing {
+                        // El móvil lo apaga solo al minuto: la interfaz también.
+                        tokio::time::sleep(Duration::from_secs(61)).await;
+                        me.ui(|w| w.set_ringing(false));
+                    }
+                }
+                Err(e) => me.status(e),
+            }
+        });
+    }
+
+    fn send_clipboard(self: &Arc<Self>) {
+        let text = arboard::Clipboard::new().and_then(|mut c| c.get_text()).unwrap_or_default();
+        if text.trim().is_empty() {
+            self.status("El portapapeles del PC no tiene texto");
+            return;
+        }
+        let me = self.clone();
+        self.rt.spawn(async move {
+            match me.core.call("clip_set", json!({ "text": text })).await {
+                Ok(_) => me.status("Portapapeles copiado en el móvil"),
+                Err(e) => me.status(e),
+            }
+        });
+    }
+
+    fn copy_code(self: &Arc<Self>, code: String) {
+        match arboard::Clipboard::new().and_then(|mut c| c.set_text(code)) {
+            Ok(()) => self.status("Código copiado al portapapeles"),
+            Err(e) => self.status(format!("No se pudo copiar: {e}")),
+        }
+    }
+
+    /// Archivos soltados desde el Explorador sobre la ventana: se envían a la carpeta del móvil que se está viendo.
+    pub fn drop_files(self: &Arc<Self>, paths: Vec<String>) {
+        if self.core.is_locked() {
+            return;
+        }
+        if !self.core.snapshot().present {
+            self.status("El móvil no está conectado: no se puede enviar");
+            return;
+        }
+        let items = match crate::api::local_stat(&self.core, paths) {
+            Ok(i) if !i.is_empty() => i,
+            _ => return,
+        };
+        let remote = self.files.lock().unwrap().phone.path.clone();
+        self.status(format!("Enviando {} elemento(s) al móvil", items.len()));
+        self.xfer_kind.store(1, Ordering::SeqCst);
+        let (id, core) = (self.core.next_job_id(), self.core.clone());
+        self.rt.spawn(crate::transfer::run_upload(self.sink(), core, id, items, remote));
+    }
+}
+
+#[cfg(test)]
+mod code_tests {
+    use super::extract_code;
+
+    #[test]
+    fn verification_codes_are_found_only_when_the_text_talks_about_codes() {
+        assert_eq!(extract_code("Tu código de verificación es 482913"), "482913");
+        assert_eq!(extract_code("G-123456 es tu código de Google"), "123456");
+        assert_eq!(extract_code("Your verification code: 123 456"), "123456");
+        assert_eq!(extract_code("Tu pedido 123456789012 llegará mañana"), "");
+        assert_eq!(extract_code("Llámame a las 5555"), "");
+    }
+}
+
+// ------------------------------------------------------------------------------------------------ ajustes guardados, seguridad,
+// copia de fotos, envío rápido y actualizaciones
+
+#[derive(Serialize, serde::Deserialize, Default, Clone)]
+struct Settings {
+    lock_windows: bool,
+    hide_content: bool,
+    mute_words: String,
+    photo_backup: bool,
+    /// Instante (ms) en que se activó la copia de fotos: solo se copian las posteriores.
+    backup_since: u64,
+    backed_up: Vec<String>,
+}
+
+fn load_settings(dir: &std::path::Path) -> Settings {
+    std::fs::read_to_string(dir.join("settings.json")).ok().and_then(|t| serde_json::from_str(&t).ok()).unwrap_or_default()
+}
+
+fn now_ms() -> u64 {
+    std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map_or(0, |d| d.as_millis() as u64)
+}
+
+/// ¿La notificación contiene alguna de las palabras a silenciar (separadas por comas)?
+pub fn matches_mute(words: &str, title: &str, text: &str) -> bool {
+    let hay = format!("{title} {text}").to_lowercase();
+    words.split(',').map(|w| w.trim().to_lowercase()).any(|w| !w.is_empty() && hay.contains(&w))
+}
+
+fn version_tuple(v: &str) -> Vec<u32> {
+    v.trim_start_matches('v').split('.').map(|p| p.parse().unwrap_or(0)).collect()
+}
+
+pub fn is_newer(latest: &str, current: &str) -> bool {
+    version_tuple(latest) > version_tuple(current)
+}
+
+thread_local! {
+    static SEND: RefCell<(Vec<String>, slint::Timer)> = RefCell::new((Vec::new(), slint::Timer::default()));
+}
+
+/// Junta los archivos soltados o enviados desde el Explorador y, medio segundo después, los envía al móvil de una vez.
+pub fn queue_send(ctx: &Arc<Ctx>, path: String) {
+    let c = ctx.clone();
+    SEND.with(|s| {
+        let mut s = s.borrow_mut();
+        s.0.push(path);
+        s.1.start(slint::TimerMode::SingleShot, Duration::from_millis(500), move || {
+            let paths = SEND.with(|s| std::mem::take(&mut s.borrow_mut().0));
+            c.drop_files(paths);
+        });
+    });
+}
+
+impl Ctx {
+    fn save_settings(&self) {
+        let s = self.settings.lock().unwrap().clone();
+        if let Ok(t) = serde_json::to_string_pretty(&s) {
+            let _ = std::fs::write(self.core.dir.join("settings.json"), t);
+        }
+    }
+
+    /// Carga los ajustes guardados en la interfaz.
+    pub fn apply_settings(self: &Arc<Self>) {
+        let s = self.settings.lock().unwrap().clone();
+        self.ui(move |w| {
+            w.set_lock_windows(s.lock_windows);
+            w.set_hide_content(s.hide_content);
+            w.set_mute_words(s.mute_words.into());
+            w.set_photo_backup(s.photo_backup);
+        });
+    }
+
+    pub fn hide_content(&self) -> bool {
+        self.settings.lock().unwrap().hide_content
+    }
+
+    pub fn muted_by_words(&self, title: &str, text: &str) -> bool {
+        matches_mute(&self.settings.lock().unwrap().mute_words, title, text)
+    }
+
+    /// Bloquea la sesión de Windows si el móvil sigue ausente 15 s después de irse (y el ajuste está activo).
+    pub fn on_presence(self: &Arc<Self>, present: bool) {
+        let was = self.last_present.swap(present, Ordering::SeqCst);
+        if was && !present && self.settings.lock().unwrap().lock_windows {
+            let me = self.clone();
+            self.rt.spawn(async move {
+                tokio::time::sleep(Duration::from_secs(15)).await;
+                if !me.core.snapshot().present && me.settings.lock().unwrap().lock_windows {
+                    me.core.seclog("el móvil se fue: se bloquea la sesión de Windows");
+                    #[cfg(windows)]
+                    unsafe {
+                        windows_sys::Win32::System::Shutdown::LockWorkStation();
+                    }
+                }
+            });
+        }
+    }
+
+    // ---------------------------------------------------------------- copia automática de fotos
+
+    pub fn start_photo_backup(self: &Arc<Self>) {
+        let me = self.clone();
+        self.rt.spawn(async move {
+            loop {
+                tokio::time::sleep(Duration::from_secs(300)).await;
+                if me.settings.lock().unwrap().photo_backup && !me.core.is_locked() && me.core.snapshot().present {
+                    me.backup_round().await;
+                }
+            }
+        });
+    }
+
+    async fn backup_round(self: &Arc<Self>) {
+        let Ok(r) = self.core.call("media_recent", json!({ "offset": 0, "limit": 40, "refresh": true })).await else { return };
+        let (since, done) = {
+            let s = self.settings.lock().unwrap();
+            (s.backup_since, s.backed_up.clone())
+        };
+        let items: Vec<Item> = r["items"]
+            .as_array()
+            .map(|a| {
+                a.iter()
+                    .filter(|x| x["mtime"].as_u64().unwrap_or(0) > since)
+                    .filter(|x| x["path"].as_str().is_some_and(|p| !done.iter().any(|d| d == p)))
+                    .map(|x| Item {
+                        path: x["path"].as_str().unwrap_or("").into(),
+                        name: x["name"].as_str().unwrap_or("").into(),
+                        dir: false,
+                        size: x["size"].as_u64().unwrap_or(0),
+                    })
+                    .collect()
+            })
+            .unwrap_or_default();
+        if items.is_empty() {
+            return;
+        }
+        let dir = std::path::PathBuf::from(std::env::var("USERPROFILE").unwrap_or_default()).join("Pictures").join("SyncroUmbral").join("Copia");
+        let _ = std::fs::create_dir_all(&dir);
+        {
+            let mut s = self.settings.lock().unwrap();
+            for i in &items {
+                s.backed_up.push(i.path.clone());
+            }
+            let n = s.backed_up.len();
+            if n > 5000 {
+                s.backed_up.drain(..n - 5000);
+            }
+        }
+        self.save_settings();
+        self.status(format!("Copiando {} foto(s) nueva(s) al PC", items.len()));
+        self.xfer_kind.store(2, Ordering::SeqCst);
+        let (id, core) = (self.core.next_job_id(), self.core.clone());
+        crate::transfer::run_download(self.sink(), core, id, items, dir.to_string_lossy().into_owned()).await;
+    }
+
+    // ---------------------------------------------------------------- menú del Explorador
+
+    fn context_menu(self: &Arc<Self>, on: bool) {
+        let Ok(exe) = std::env::current_exe() else { return };
+        let mut ok = true;
+        for base in [r"HKCU\Software\Classes\*\shell\SyncroUmbral", r"HKCU\Software\Classes\Directory\shell\SyncroUmbral"] {
+            let r = if on {
+                let cmd = format!("\"{}\" --send \"%1\"", exe.display());
+                crate::autostart::reg_run(&["add", base, "/ve", "/d", "Enviar al móvil con SyncroUmbral", "/f"])
+                    && crate::autostart::reg_run(&["add", &format!(r"{base}\command"), "/ve", "/d", &cmd, "/f"])
+            } else {
+                crate::autostart::reg_run(&["delete", base, "/f"])
+            };
+            ok &= r || !on;
+        }
+        self.status(match (on, ok) {
+            (true, true) => "Añadido: clic derecho en un archivo, «Enviar al móvil con SyncroUmbral»",
+            (false, _) => "Quitado del menú del Explorador",
+            _ => "No se pudo modificar el menú del Explorador",
+        });
+    }
+
+    // ---------------------------------------------------------------- actualizaciones (GitHub Releases)
+
+    pub fn start_update_check(self: &Arc<Self>) {
+        let me = self.clone();
+        self.rt.spawn(async move {
+            loop {
+                let m2 = me.clone();
+                let found = tokio::task::spawn_blocking(move || m2.check_update()).await.ok().flatten();
+                if let Some((ver, _, _)) = found {
+                    me.ui(move |w| w.set_update_text(format!("Hay una versión nueva de SyncroUmbral: {ver}").into()));
+                }
+                tokio::time::sleep(Duration::from_secs(6 * 3600)).await;
+            }
+        });
+    }
+
+    /// (versión, url del exe, url de SHA256SUMS) de la última versión publicada si es más nueva que la instalada.
+    fn check_update(&self) -> Option<(String, String, String)> {
+        let r: Value = ureq::get("https://api.github.com/repos/juandr404/syncroumbral/releases?per_page=1")
+            .set("User-Agent", "SyncroUmbral")
+            .timeout(Duration::from_secs(15))
+            .call()
+            .ok()?
+            .into_json()
+            .ok()?;
+        let rel = r.get(0)?;
+        let tag = rel["tag_name"].as_str()?.to_string();
+        if !is_newer(&tag, env!("CARGO_PKG_VERSION")) {
+            return None;
+        }
+        let find = |suffix: &str| {
+            rel["assets"].as_array()?.iter().find_map(|a| {
+                let n = a["name"].as_str()?;
+                let u = a["browser_download_url"].as_str()?;
+                (n.ends_with(suffix) && u.starts_with("https://github.com/juandr404/syncroumbral/releases/download/")).then(|| u.to_string())
+            })
+        };
+        Some((tag.trim_start_matches('v').to_string(), find("windows-x64.exe")?, find("SHA256SUMS.txt")?))
+    }
+
+    /// Descarga la versión nueva, comprueba su huella SHA-256 contra la de la misma publicación, reemplaza el ejecutable y lo reinicia.
+    fn do_update(self: &Arc<Self>) {
+        let me = self.clone();
+        self.status("Descargando la actualización...");
+        self.rt.spawn_blocking(move || {
+            let r = (|| -> Result<(), String> {
+                let (_, exe_url, sums_url) = me.check_update().ok_or("Ya tienes la última versión")?;
+                let get = |u: &str| -> Result<Vec<u8>, String> {
+                    let mut v = Vec::new();
+                    let resp = ureq::get(u).set("User-Agent", "SyncroUmbral").timeout(Duration::from_secs(300)).call().map_err(|e| e.to_string())?;
+                    std::io::Read::read_to_end(&mut std::io::Read::take(resp.into_reader(), 100 << 20), &mut v).map_err(|e| e.to_string())?;
+                    Ok(v)
+                };
+                let sums = String::from_utf8(get(&sums_url)?).map_err(|e| e.to_string())?;
+                let bin = get(&exe_url)?;
+                let name = exe_url.rsplit('/').next().unwrap_or("");
+                let want = sums.lines().find_map(|l| {
+                    let (h, n) = l.split_once(' ')?;
+                    (n.trim().trim_start_matches('*') == name).then(|| h.to_lowercase())
+                }).ok_or("La publicación no trae la huella del archivo")?;
+                use sha2::{Digest, Sha256};
+                if hex::encode(Sha256::digest(&bin)) != want {
+                    return Err("La huella de la descarga no coincide: no se instala".into());
+                }
+                let exe = std::env::current_exe().map_err(|e| e.to_string())?;
+                let old = exe.with_extension("old");
+                let _ = std::fs::remove_file(&old);
+                std::fs::rename(&exe, &old).map_err(|e| e.to_string())?; // un ejecutable en marcha se puede renombrar
+                if let Err(e) = std::fs::write(&exe, &bin) {
+                    let _ = std::fs::rename(&old, &exe);
+                    return Err(e.to_string());
+                }
+                std::process::Command::new(&exe).arg("--background").spawn().map_err(|e| e.to_string())?;
+                Ok(())
+            })();
+            match r {
+                Ok(()) => {
+                    let _ = slint::invoke_from_event_loop(|| {
+                        let _ = slint::quit_event_loop();
+                    });
+                }
+                Err(e) => me.status(e),
+            }
+        });
+    }
+}
+
+pub fn wire_extras(win: &AppWindow, ctx: &Arc<Ctx>) {
+    let c = ctx.clone();
+    win.on_toggled_lock_windows(move |v| {
+        c.settings.lock().unwrap().lock_windows = v;
+        c.save_settings();
+    });
+    let c = ctx.clone();
+    win.on_toggled_hide(move |v| {
+        c.settings.lock().unwrap().hide_content = v;
+        c.save_settings();
+        c.push_notifs();
+        c.refresh_toast();
+    });
+    let c = ctx.clone();
+    win.on_mute_words_edited(move |t| {
+        c.settings.lock().unwrap().mute_words = t.to_string();
+        c.save_settings();
+    });
+    let c = ctx.clone();
+    win.on_toggled_backup(move |v| {
+        {
+            let mut s = c.settings.lock().unwrap();
+            s.photo_backup = v;
+            if v {
+                s.backup_since = now_ms();
+            }
+        }
+        c.save_settings();
+        c.status(if v { "Copia automática activada: se copiarán las fotos nuevas" } else { "Copia automática desactivada" });
+    });
+    let c = ctx.clone();
+    win.on_context_menu(move |on| c.context_menu(on));
+    let c = ctx.clone();
+    win.on_do_update(move || c.do_update());
+    ctx.apply_settings();
+}
+
+#[cfg(test)]
+mod extras_tests {
+    use super::*;
+
+    #[test]
+    fn mute_words_and_versions() {
+        assert!(matches_mute("oferta, Sorteo", "Gran OFERTA hoy", ""));
+        assert!(!matches_mute("", "oferta", "x"));
+        assert!(!matches_mute(" , ", "a", "b"));
+        assert!(is_newer("v0.4.1", "0.4.0") && is_newer("0.10.0", "0.9.9") && !is_newer("v0.4.0", "0.4.0"));
+    }
+}
+
+impl Ctx {
+    // ---------------------------------------------------------------- SMS
+
+    fn load_threads(self: &Arc<Self>) {
+        let me = self.clone();
+        self.rt.spawn(async move {
+            match me.core.call("sms_threads", json!({})).await {
+                Ok(r) => {
+                    let rows: Vec<(String, String, String, String, bool)> = r["items"]
+                        .as_array()
+                        .map(|a| {
+                            a.iter()
+                                .map(|x| {
+                                    let addr = x["address"].as_str().unwrap_or("").to_string();
+                                    let name = x["name"].as_str().unwrap_or("");
+                                    (
+                                        if name.is_empty() { addr.clone() } else { name.to_string() },
+                                        addr,
+                                        format!("{}{}", if x["mine"] == true { "Tú: " } else { "" }, x["snippet"].as_str().unwrap_or("")),
+                                        ago(x["date"].as_u64().unwrap_or(0)),
+                                        x["unread"] == true,
+                                    )
+                                })
+                                .collect()
+                        })
+                        .unwrap_or_default();
+                    *me.threads.lock().unwrap() = rows.iter().map(|r| (r.0.clone(), r.1.clone())).collect();
+                    me.ui(move |w| {
+                        w.set_threads(model(rows.into_iter().map(|(title, address, snippet, time, unread)| ThreadItem { title: title.into(), address: address.into(), snippet: snippet.into(), time: time.into(), unread }).collect()));
+                        w.set_sms_message("".into());
+                    });
+                }
+                Err(e) => {
+                    let e = if me.core.snapshot().present { e } else { "El móvil no está conectado.".to_string() };
+                    me.ui(move |w| w.set_sms_message(e.into()));
+                }
+            }
+        });
+    }
+
+    fn open_thread(self: &Arc<Self>, i: usize) {
+        let Some((title, address)) = self.threads.lock().unwrap().get(i).cloned() else { return };
+        *self.sms_open.lock().unwrap() = Some(address.clone());
+        self.ui(move |w| {
+            w.set_sms_selected(i as i32);
+            w.set_sms_title(title.into());
+        });
+        let me = self.clone();
+        self.rt.spawn(async move {
+            if let Ok(r) = me.core.call("sms_list", json!({ "address": address, "limit": 80 })).await {
+                let mut rows: Vec<(String, bool, String)> = r["items"]
+                    .as_array()
+                    .map(|a| a.iter().map(|x| (x["text"].as_str().unwrap_or("").to_string(), x["mine"] == true, ago(x["date"].as_u64().unwrap_or(0)))).collect())
+                    .unwrap_or_default();
+                rows.reverse(); // la lista llega de más nueva a más antigua
+                me.sms_log.lock().unwrap().clear();
+                me.sms_log.lock().unwrap().extend(rows);
+                me.apply_messages();
+            }
+        });
+    }
+
+    fn apply_messages(self: &Arc<Self>) {
+        let rows = self.sms_log.lock().unwrap().clone();
+        self.ui(move |w| w.set_messages(model(rows.into_iter().map(|(text, mine, time)| MsgItem { text: text.into(), mine, time: time.into() }).collect())));
+    }
+
+    fn sms_send(self: &Arc<Self>, text: String) {
+        let Some(address) = self.sms_open.lock().unwrap().clone() else { return };
+        if text.trim().is_empty() {
+            return;
+        }
+        let me = self.clone();
+        self.rt.spawn(async move {
+            match me.core.call("sms_send", json!({ "address": address, "text": text })).await {
+                Ok(_) => {
+                    // Android no guarda en Mensajes lo enviado por otra app: se muestra aquí.
+                    me.sms_log.lock().unwrap().push((text, true, "ahora".into()));
+                    me.apply_messages();
+                }
+                Err(e) => me.status(e),
+            }
+        });
+    }
+}
+
+pub fn wire_sms(win: &AppWindow, ctx: &Arc<Ctx>) {
+    let c = ctx.clone();
+    win.on_sms_refresh(move || c.load_threads());
+    let c = ctx.clone();
+    win.on_sms_open(move |i| c.open_thread(i as usize));
+    let c = ctx.clone();
+    win.on_sms_send(move |t| c.sms_send(t.to_string()));
 }

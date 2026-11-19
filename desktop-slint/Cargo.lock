@@ -2745,6 +2745,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "jpeg-decoder"
+version = "0.3.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "00810f1d8b74be64b13dbf3db89ac67740615d6c891f0e7b6179326533011a07"
+
+[[package]]
 name = "js-sys"
 version = "0.3.107"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5148,15 +5154,17 @@ dependencies = [
 
 [[package]]
 name = "syncroumbral-slint"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "anyhow",
+ "arboard",
  "argon2",
  "base64 0.22.1",
  "futures-util",
  "hex",
  "hmac",
  "i-slint-backend-testing",
+ "jpeg-decoder",
  "local-ip-address",
  "mdns-sd",
  "p256",

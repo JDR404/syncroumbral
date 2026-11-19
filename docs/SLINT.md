@@ -62,7 +62,6 @@ cargo build --release --features selftest  # añade --test-unlock=CLAVE --test-p
 
 ## Pendiente
 
-- Arrastrar archivos desde el Explorador (winit lo permite; falta conectarlo).
 - Iconos de las aplicaciones y fotos de los contactos en las tarjetas.
 - Carátula del reproductor y cronómetro de la llamada en curso.
 - Revisar la **licencia de Slint** antes de distribuir: GPLv3, o gratuita para escritorio con atribución, o comercial.

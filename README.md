@@ -6,7 +6,7 @@
 > está abierta. Si se va, la aplicación se bloquea y oculta todo lo que había en pantalla. Sin móvil, solo se abre con una clave de respaldo.
 > Además trae al PC tus notificaciones, tus archivos y tus apps.
 
-Estado: **beta 0.3.0** · PC con interfaz nativa Slint (la versión Tauri de `desktop/` queda como referencia y ya no se publica) · Parte del portafolio de **SyncroApp** · Desarrollador: SyncroApp, `syncroapp.dev@gmail.com`
+Estado: **beta 0.4.0** · PC con interfaz nativa Slint (la versión Tauri de `desktop/` queda como referencia y ya no se publica) · Parte del portafolio de **SyncroApp** · Desarrollador: SyncroApp, `syncroapp.dev@gmail.com`
 (nombre anterior del proyecto: Umbral) · Seguridad: [docs/AUDITORIA_SEGURIDAD.md](docs/AUDITORIA_SEGURIDAD.md)
 
 Novedades de cada versión: [CHANGELOG.md](CHANGELOG.md).
@@ -35,13 +35,16 @@ Novedades de cada versión: [CHANGELOG.md](CHANGELOG.md).
 - **Archivos.** Explorador de dos paneles (PC y móvil), arrastrar y soltar desde el Explorador, copia de archivos y carpetas en ambos
   sentidos con varios archivos a la vez, progreso y cancelación. Cada archivo se verifica por tamaño y nunca queda a medias.
   Renombrar, crear y eliminar en el móvil. Las listas se manejan con teclado (flechas, Espacio, Intro).
+- **Galería, contactos, llamadas y SMS.** Fotos y vídeos del móvil con miniaturas, contactos con búsqueda, marcar y devolver llamadas desde el PC, y mensajes SMS (no MMS ni RCS). Permisos opcionales.
+- **Portapapeles y envío rápido.** El portapapeles viaja en ambos sentidos; clic derecho en un archivo, «Enviar al móvil con SyncroUmbral».
+- **Extras de seguridad y comodidad.** Copiar códigos de verificación con un clic, buscar el móvil (suena al máximo), bloquear Windows al alejarte, ocultar el contenido de los avisos, silenciar por palabras, copia automática de fotos y actualización automática.
 - **Compartir con el PC.** Desde el menú Compartir de cualquier app del móvil, el texto o los archivos llegan al PC.
 - **Notificaciones.** Llegan al PC en una ventana emergente y en su pestaña. Se responde desde el PC (WhatsApp, Telegram, SMS y cualquier
   app con respuesta rápida), se pulsan sus botones, se descartan o se silencia la app. Con la aplicación bloqueada no se muestra ni guarda nada.
 - **Apps del móvil en el PC.** "Abrir en el PC" abre cualquier app en su propia ventana (scrcpy, pantalla virtual: el móvil puede seguir
   bloqueado y dormido). La sesión vive en el móvil, así que no hay que volver a iniciar sesión.
-- **Mensajería web.** WhatsApp, Instagram, Facebook, Messenger y Telegram en sus clientes web oficiales, dentro de la ventana de
-  SyncroUmbral, con la sesión guardada en el PC. Esas páginas no pueden usar ninguna función interna de SyncroUmbral.
+- **Mensajería web.** WhatsApp, Instagram, Facebook, Messenger y Telegram en sus clientes web oficiales, cada uno en su
+  propia ventana de Edge, aislada y con la sesión guardada en el PC; se cierra al bloquear.
 - **Llamadas.** Aviso con sonido en el PC y botones Contestar y Rechazar (llamadas normales y de WhatsApp). Opcionalmente silencia el
   resto de sonidos del PC mientras suena. El audio de la conversación sigue en el móvil.
 - **Aplicaciones.** Lista con icono, versión, tamaño y fecha; abrir, detener, ajustes, extraer APK, borrar datos y desinstalar (por adb).
@@ -111,7 +114,7 @@ PC (requiere Rust, Node y las Build Tools de MSVC):
 ```
 cd desktop
 npm install
-npx tauri build                     # instalador: src-tauri/target/release/bundle/nsis/SyncroUmbral_0.3.0_x64-setup.exe
+npx tauri build                     # instalador: src-tauri/target/release/bundle/nsis/SyncroUmbral_0.4.0_x64-setup.exe
 npx tauri build --no-bundle         # solo el ejecutable: src-tauri/target/release/syncroumbral.exe
 npx tauri build --debug --no-bundle # ejecutable de depuración (más rápido de compilar)
 cargo test --manifest-path src-tauri/Cargo.toml
@@ -174,7 +177,7 @@ Fuentes: [Microsoft Phone Link](https://support.microsoft.com/en-US/phone-link?f
 
 | Fase | Qué | Por qué |
 |---|---|---|
-| Hecho (0.3.0) | **Interfaz nativa con [Slint](https://slint.dev)** en lugar de WebView2 ([`desktop-slint/`](desktop-slint), ver [docs/SLINT.md](docs/SLINT.md)) | Un proceso y ~8 MB privados frente a 7 procesos y ~230 MB. Archivos, notificaciones con respuesta y controles, llamadas, apps del móvil en el PC, mensajería en una ventana aislada de Edge, vinculación por QR, bandeja e instancia única, probados con un Pixel 9 Pro. Revisar la licencia de Slint (GPLv3, escritorio gratuito con atribución, o comercial) antes de distribuir |
+| Hecho (0.4.0) | **Interfaz nativa con [Slint](https://slint.dev)** en lugar de WebView2 ([`desktop-slint/`](desktop-slint), ver [docs/SLINT.md](docs/SLINT.md)) | Un proceso y ~8 MB privados frente a 7 procesos y ~230 MB. Archivos, notificaciones con respuesta y controles, llamadas, apps del móvil en el PC, mensajería en una ventana aislada de Edge, vinculación por QR, bandeja e instancia única, probados con un Pixel 9 Pro. Revisar la licencia de Slint (GPLv3, escritorio gratuito con atribución, o comercial) antes de distribuir |
 | Después | Firma de código y actualizador firmado | Evitar SmartScreen y Play Protect y poder repartir parches (S-11 de la auditoría) |
 | Después | Bluetooth LE como segundo factor de proximidad | La presencia actual es "misma red", no "cerca" (S-03) |
 | Continuo | `cargo audit` y SBOM en la compilación, revisión externa | Antes de repartirla a terceros |

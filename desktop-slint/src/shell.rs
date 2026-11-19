@@ -15,13 +15,19 @@ pub fn run() {
     let background = std::env::args().any(|a| a == "--background");
     let dir_arg = boot::data_dir_arg();
 
+    // `--send RUTA` (menú del Explorador): la copia en marcha recibe el archivo; si no hay, se envía cuando esta arranque.
+    let send_arg: Option<String> = std::env::args().skip_while(|a| a != "--send").nth(1);
+
     // Una sola copia: si ya hay otra, se le pide mostrar la ventana y esta sale.
     let listener = if dir_arg.is_none() {
         match TcpListener::bind(("127.0.0.1", SINGLE_PORT)) {
             Ok(l) => Some(l),
             Err(_) => {
                 if let Ok(mut s) = TcpStream::connect(("127.0.0.1", SINGLE_PORT)) {
-                    let _ = s.write_all(b"show");
+                    let _ = match &send_arg {
+                        Some(p) => s.write_all(format!("send\n{p}").as_bytes()),
+                        None => s.write_all(b"show"),
+                    };
                 }
                 return;
             }
@@ -75,14 +81,20 @@ pub fn run() {
     rt.spawn(crate::appwin::awake_keeper(core.clone()));
     rt.spawn(server::run(ui, core.clone(), tls));
 
-    // Otra copia pide mostrar la ventana.
+    // Otra copia pide mostrar la ventana o enviar un archivo.
+    let ctx3 = ctx.clone();
     if let Some(l) = listener {
         std::thread::spawn(move || {
             for conn in l.incoming().flatten() {
                 let mut conn = conn;
-                let mut buf = [0u8; 8];
                 let _ = conn.set_read_timeout(Some(std::time::Duration::from_secs(1)));
-                if conn.read(&mut buf).unwrap_or(0) > 0 {
+                let mut msg = Vec::new();
+                let _ = conn.take(32 * 1024).read_to_end(&mut msg);
+                let msg = String::from_utf8_lossy(&msg).into_owned();
+                if let Some(path) = msg.strip_prefix("send\n") {
+                    let (ctx, path) = (ctx3.clone(), path.to_string());
+                    let _ = slint::invoke_from_event_loop(move || glue::queue_send(&ctx, path));
+                } else if !msg.is_empty() {
                     let _ = slint::invoke_from_event_loop(glue::show_main);
                 }
             }
@@ -93,7 +105,28 @@ pub fn run() {
     let _tray = make_tray(ctx.clone());
 
     win.window().on_close_requested(|| slint::CloseRequestResponse::HideWindow);
+
+    // Arrastrar archivos desde el Explorador sobre la ventana: se envían a la carpeta del móvil abierta.
+    {
+        use slint::winit_030::{winit::event::WindowEvent, EventResult, WinitWindowAccessor};
+        let c = ctx.clone();
+        win.window().on_winit_window_event(move |_, ev| {
+            if let WindowEvent::DroppedFile(p) = ev {
+                glue::queue_send(&c, p.to_string_lossy().into_owned());
+            }
+            EventResult::Propagate
+        });
+    }
     ctx.push_state();
+    ctx.start_photo_backup();
+    ctx.start_update_check();
+    if let Some(p) = send_arg {
+        glue::queue_send(&ctx, p);
+    }
+    // Resto de una actualización anterior.
+    if let Ok(exe) = std::env::current_exe() {
+        let _ = std::fs::remove_file(exe.with_extension("old"));
+    }
     let _timer = glue::start_timers(&ctx);
     // Solo para pruebas (feature `selftest`): desbloquear con una clave y abrir una página sin teclado ni ratón.
     #[cfg(feature = "selftest")]
@@ -109,6 +142,7 @@ pub fn run() {
                     let ui = SlintUi(ctx2);
                     let now = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map_or(0, |d| d.as_millis() as u64);
                     c.push_notif(&ui, &serde_json::json!({"key":"k1","pkg":"com.whatsapp","app":"WhatsApp","title":"Ana","text":"¿Nos vemos a las 6?","when":now,"actions":[{"index":0,"title":"Responder","reply":true,"hint":"Responder a Ana"}]}));
+                    c.push_notif(&ui, &serde_json::json!({"key":"k3","pkg":"com.google","app":"Mensajes","title":"Google","text":"G-482913 es tu código de verificación","when":now,"actions":[]}));
                     c.push_notif(&ui, &serde_json::json!({"key":"k2","pkg":"com.whatsapp","app":"WhatsApp","title":"Carlos","text":"Llamada de voz","when":now,"call":true,"incoming":true,"actions":[]}));
                 });
             }

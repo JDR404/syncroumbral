@@ -29,6 +29,42 @@ export struct NotifAction {
     title: string,
 }
 
+export struct Photo {
+    path: string,
+    name: string,
+    video: bool,
+    selected: bool,
+    has-thumb: bool,
+    thumb: image,
+}
+
+export struct ContactItem {
+    name: string,
+    number: string,
+}
+
+export struct CallItem {
+    title: string,
+    detail: string,
+    number: string,
+    /// 1 entrante, 2 saliente, 3 perdida
+    kind: int,
+}
+
+export struct ThreadItem {
+    title: string,
+    address: string,
+    snippet: string,
+    time: string,
+    unread: bool,
+}
+
+export struct MsgItem {
+    text: string,
+    mine: bool,
+    time: string,
+}
+
 export struct Notif {
     key: string,
     app: string,
@@ -40,6 +76,8 @@ export struct Notif {
     /// Índice de la acción de responder (-1 si no se puede responder).
     reply-index: int,
     reply-hint: string,
+    /// Código de verificación detectado en el texto (vacío si no hay).
+    code: string,
     /// Botones de la notificación (reproductor, etc.), sin los de responder ni los de llamada.
     actions: [NotifAction],
 }

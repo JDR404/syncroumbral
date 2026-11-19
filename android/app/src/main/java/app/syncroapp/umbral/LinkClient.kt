@@ -184,6 +184,8 @@ class LinkClient(private val ctx: Context) {
     /** Peticiones del PC (archivos). Se atienden fuera del hilo de red para no frenar los latidos. */
     private val io = Executors.newFixedThreadPool(4) { r -> Thread(r, "umbral-io").apply { isDaemon = true } }
 
+    private val PHONE_OPS = setOf("contacts", "calllog", "dial", "find_ring", "phone_perms")
+
     private fun answer(ws: WebSocket, req: JSONObject) {
         val res = JSONObject().put("t", "res").put("id", req.getLong("id"))
         try {
@@ -194,6 +196,9 @@ class LinkClient(private val ctx: Context) {
                 op.startsWith("call_") -> CallOps.handle(ctx, op, req)
                 op.startsWith("clip_") -> ClipOps.handle(ctx, op, req)
                 op == "keep_awake" -> PowerOps.handle(ctx, op, req)
+                op.startsWith("media_") -> MediaOps.handle(op, req)
+                op.startsWith("sms_") -> SmsOps.handle(ctx, op, req)
+                op in PHONE_OPS -> PhoneOps.handle(ctx, op, req)
                 op == "set_mode" -> { Store(ctx).advanced = req.getBoolean("advanced"); JSONObject() }
                 else -> FileOps.handle(ctx, op, req)
             }

@@ -53,6 +53,15 @@ class LinkService : Service() {
             .build()
     }
 
+    /** "Portapapeles al PC": abre una actividad transparente que lee el portapapeles (solo se puede en primer plano). */
+    private fun clipAction(): NotificationCompat.Action {
+        val pi = android.app.PendingIntent.getActivity(
+            this, 3, Intent(this, ClipSendActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+            android.app.PendingIntent.FLAG_IMMUTABLE or android.app.PendingIntent.FLAG_UPDATE_CURRENT
+        )
+        return NotificationCompat.Action.Builder(0, "Copiar al PC", pi).build()
+    }
+
     private fun buildNotification(): Notification =
         NotificationCompat.Builder(this, CHANNEL)
             .setSmallIcon(R.drawable.ic_stat_syncro)
@@ -63,6 +72,7 @@ class LinkService : Service() {
                 if (Status.connected) {
                     addAction(action("Bloquear", ActionReceiver.ACTION_LOCK, 1, false))
                     addAction(action("Desbloquear", ActionReceiver.ACTION_UNLOCK, 2, true))
+                    addAction(clipAction())
                 }
             }
             // Al tocar el aviso se abre la app (antes había que buscarla).

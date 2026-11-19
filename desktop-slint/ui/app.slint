@@ -1,10 +1,10 @@
 // SyncroUmbral: interfaz nativa (sin WebView). Misma paleta y estructura que la versión HTML.
 import { LineEdit, ListView, ScrollView } from "std-widgets.slint";
-import { Theme, FileItem, Notif, NotifAction, AppItem, DeviceItem, ServiceItem, Pill, Toggle, SwitchRow, NavItem, Pane } from "common.slint";
+import { Theme, FileItem, Notif, NotifAction, ThreadItem, MsgItem, Photo, ContactItem, CallItem, AppItem, DeviceItem, ServiceItem, Pill, Toggle, SwitchRow, NavItem, Pane } from "common.slint";
 import { NotifCard } from "notif.slint";
 import { ToastWindow } from "toast.slint";
 
-export { Theme, FileItem, Notif, NotifAction, AppItem, DeviceItem, ServiceItem, ToastWindow }
+export { Theme, FileItem, Notif, NotifAction, ThreadItem, MsgItem, Photo, ContactItem, CallItem, AppItem, DeviceItem, ServiceItem, ToastWindow }
 
 // Tarjeta de ajustes con título.
 component Card inherits Rectangle {
@@ -79,6 +79,23 @@ export component AppWindow inherits Window {
     in property <string> notif-hint;
     in property <string> call-status;
 
+    // ---- galería
+    in property <[Photo]> photos;
+    in property <string> gallery-message;
+    in property <int> gallery-selected;
+
+    // ---- mensajes SMS
+    in property <[ThreadItem]> threads;
+    in property <[MsgItem]> messages;
+    in property <string> sms-message;
+    in property <string> sms-title;
+    in property <int> sms-selected: -1;
+
+    // ---- llamadas
+    in property <[ContactItem]> contacts;
+    in property <[CallItem]> call-log;
+    in property <string> calls-message;
+
     // ---- aplicaciones
     in property <[AppItem]> apps;
     in property <string> apps-message;
@@ -96,6 +113,12 @@ export component AppWindow inherits Window {
     in-out property <bool> mute-on-call: true;
     in-out property <bool> advanced: false;
     in property <string> tools-text;
+    in property <bool> ringing;
+    in-out property <bool> lock-windows: false;
+    in-out property <bool> hide-content: false;
+    in-out property <string> mute-words;
+    in-out property <bool> photo-backup: false;
+    in property <string> update-text;
 
     callback unlock(string);
     callback lock-now();
@@ -125,8 +148,28 @@ export component AppWindow inherits Window {
     callback toggled-advanced(bool);
     callback install-tool(string);
     callback page-changed(int);
+    callback copy-code(string);
+    callback gallery-refresh();
+    callback gallery-more();
+    callback gallery-toggle(int);
+    callback gallery-fetch();
+    callback dial(string);
+    callback contacts-search(string);
+    callback ring-phone(bool);
+    callback send-clipboard();
+    callback sms-refresh();
+    callback sms-open(int);
+    callback sms-send(string);
+    callback toggled-lock-windows(bool);
+    callback toggled-hide(bool);
+    callback mute-words-edited(string);
+    callback toggled-backup(bool);
+    callback context-menu(bool);
+    callback do-update();
 
     property <bool> narrow: root.side-collapsed || root.width < 980px;
+    property <length> cell: 156px;
+    property <int> cols: Math.max(1, Math.floor((root.width - (root.narrow ? 68px : 232px) - 70px) / root.cell));
 
     // ---------------------------------------------------------------- bloqueo
     if root.locked: Rectangle {
@@ -189,9 +232,12 @@ export component AppWindow inherits Window {
                 }
                 NavItem { label: "Archivos"; glyph: "A"; active: root.page == 0; collapsed: root.narrow; clicked => { root.page = 0; root.page-changed(0); } }
                 NavItem { label: "Notificaciones"; glyph: "N"; active: root.page == 1; badge: root.notifs.length; collapsed: root.narrow; clicked => { root.page = 1; root.page-changed(1); } }
-                NavItem { label: "Aplicaciones"; glyph: "P"; active: root.page == 2; collapsed: root.narrow; clicked => { root.page = 2; root.page-changed(2); } }
-                NavItem { label: "Mensajería"; glyph: "M"; active: root.page == 3; collapsed: root.narrow; clicked => { root.page = 3; root.page-changed(3); } }
-                NavItem { label: "Móviles y ajustes"; glyph: "C"; active: root.page == 4; collapsed: root.narrow; clicked => { root.page = 4; root.page-changed(4); } }
+                NavItem { label: "Galería"; glyph: "G"; active: root.page == 2; collapsed: root.narrow; clicked => { root.page = 2; root.page-changed(2); } }
+                NavItem { label: "Llamadas"; glyph: "L"; active: root.page == 3; collapsed: root.narrow; clicked => { root.page = 3; root.page-changed(3); } }
+                NavItem { label: "Mensajes"; glyph: "S"; active: root.page == 7; collapsed: root.narrow; clicked => { root.page = 7; root.page-changed(7); } }
+                NavItem { label: "Aplicaciones"; glyph: "P"; active: root.page == 4; collapsed: root.narrow; clicked => { root.page = 4; root.page-changed(4); } }
+                NavItem { label: "Mensajería"; glyph: "M"; active: root.page == 5; collapsed: root.narrow; clicked => { root.page = 5; root.page-changed(5); } }
+                NavItem { label: "Móviles y ajustes"; glyph: "C"; active: root.page == 6; collapsed: root.narrow; clicked => { root.page = 6; root.page-changed(6); } }
                 Rectangle { vertical-stretch: 1; }
                 Rectangle {
                     background: Theme.surface2;
@@ -226,6 +272,18 @@ export component AppWindow inherits Window {
                 padding-left: 8px;
                 spacing: 10px;
 
+                if root.update-text != "": Rectangle {
+                    height: 44px;
+                    border-radius: 14px;
+                    background: #12404a;
+                    HorizontalLayout {
+                        padding-left: 16px;
+                        padding-right: 8px;
+                        spacing: 12px;
+                        Text { text: root.update-text; color: Theme.on-container; vertical-alignment: center; overflow: elide; horizontal-stretch: 1; }
+                        Pill { label: "Actualizar ahora"; height: 32px; y: 6px; clicked => { root.do-update(); } }
+                    }
+                }
                 if root.warn != "": Rectangle {
                     height: 34px;
                     border-radius: 12px;
@@ -318,13 +376,197 @@ export component AppWindow inherits Window {
                                 answer => { root.call-answer(n.key); }
                                 end => { root.call-end(n.key); }
                                 action(i) => { root.notif-action(n.key, i); }
+                                copy-code(c) => { root.copy-code(c); }
+                            }
+                        }
+                    }
+                }
+
+                // ------------------------------------------------------ Galería
+                if root.page == 2: VerticalLayout {
+                    spacing: 12px;
+                    Text { text: "Galería"; font-size: 26px; color: Theme.text; }
+                    HorizontalLayout {
+                        spacing: 10px;
+                        alignment: start;
+                        Pill { label: "Actualizar"; kind: 1; clicked => { root.gallery-refresh(); } }
+                        Pill { label: root.gallery-selected > 0 ? "Traer " + root.gallery-selected + " al PC" : "Traer al PC"; enabled: root.gallery-selected > 0; clicked => { root.gallery-fetch(); } }
+                        Pill { label: "Cargar más"; kind: 2; clicked => { root.gallery-more(); } }
+                        Text { text: root.gallery-message; color: Theme.muted; vertical-alignment: center; overflow: elide; }
+                    }
+                    Rectangle {
+                        vertical-stretch: 1;
+                        background: Theme.surface;
+                        border-radius: 20px;
+                        clip: true;
+                        ScrollView {
+                            viewport-height: Math.ceil(root.photos.length / root.cols) * root.cell + 20px;
+                            for p[i] in root.photos: Rectangle {
+                                x: Math.mod(i, root.cols) * root.cell + 12px;
+                                y: Math.floor(i / root.cols) * root.cell + 12px;
+                                width: root.cell - 8px;
+                                height: root.cell - 8px;
+                                border-radius: 12px;
+                                background: Theme.surface2;
+                                clip: true;
+                                if p.has-thumb: Image { source: p.thumb; width: parent.width; height: parent.height; image-fit: cover; }
+                                if p.video: Rectangle {
+                                    x: 8px; y: parent.height - 30px; width: 26px; height: 22px; border-radius: 6px; background: #000000a0;
+                                    Text { text: "▶"; color: white; font-size: 11px; horizontal-alignment: center; vertical-alignment: center; }
+                                }
+                                Rectangle { border-radius: 12px; border-width: p.selected ? 3px : 0px; border-color: Theme.primary; background: p.selected ? #4fd8eb30 : transparent; }
+                                TouchArea { mouse-cursor: pointer; clicked => { root.gallery-toggle(i); } }
+                            }
+                        }
+                    }
+                }
+
+                // ------------------------------------------------------ Llamadas
+                if root.page == 3: VerticalLayout {
+                    spacing: 12px;
+                    Text { text: "Llamadas"; font-size: 26px; color: Theme.text; }
+                    HorizontalLayout {
+                        spacing: 10px;
+                        dial-box := LineEdit { placeholder-text: "Número para llamar"; accepted(t) => { root.dial(t); } }
+                        Pill { label: "Llamar"; kind: 4; y: 2px; clicked => { root.dial(dial-box.text); } }
+                    }
+                    if root.calls-message != "": Text { text: root.calls-message; color: Theme.bad; wrap: word-wrap; }
+                    HorizontalLayout {
+                        spacing: 14px;
+                        vertical-stretch: 1;
+                        Rectangle {
+                            background: Theme.surface;
+                            border-radius: 20px;
+                            clip: true;
+                            VerticalLayout {
+                                padding: 14px;
+                                spacing: 8px;
+                                Text { text: "Contactos"; font-size: 16px; color: Theme.text; }
+                                LineEdit { placeholder-text: "Buscar"; edited(t) => { root.contacts-search(t); } }
+                                ListView {
+                                    vertical-stretch: 1;
+                                    for c in root.contacts: Rectangle {
+                                        height: 42px;
+                                        HorizontalLayout {
+                                            spacing: 10px;
+                                            Text { text: c.name; color: Theme.text; vertical-alignment: center; overflow: elide; horizontal-stretch: 1; }
+                                            Text { text: c.number; color: Theme.muted; font-size: 12px; vertical-alignment: center; }
+                                            Pill { label: "Llamar"; kind: 1; height: 30px; min-width: 70px; y: 6px; clicked => { root.dial(c.number); } }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        Rectangle {
+                            background: Theme.surface;
+                            border-radius: 20px;
+                            clip: true;
+                            VerticalLayout {
+                                padding: 14px;
+                                spacing: 8px;
+                                Text { text: "Historial"; font-size: 16px; color: Theme.text; }
+                                ListView {
+                                    vertical-stretch: 1;
+                                    for c in root.call-log: Rectangle {
+                                        height: 46px;
+                                        HorizontalLayout {
+                                            spacing: 10px;
+                                            Text { text: c.kind == 1 ? "↙" : c.kind == 2 ? "↗" : "✕"; color: c.kind == 3 ? Theme.bad : Theme.ok; vertical-alignment: center; font-size: 16px; }
+                                            VerticalLayout {
+                                                horizontal-stretch: 1;
+                                                alignment: center;
+                                                Text { text: c.title; color: Theme.text; overflow: elide; }
+                                                Text { text: c.detail; color: Theme.muted; font-size: 12px; overflow: elide; }
+                                            }
+                                            Pill { label: "Llamar"; kind: 1; height: 30px; min-width: 70px; y: 8px; clicked => { root.dial(c.number); } }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // ------------------------------------------------------ Mensajes (SMS)
+                if root.page == 7: VerticalLayout {
+                    spacing: 12px;
+                    Text { text: "Mensajes SMS"; font-size: 26px; color: Theme.text; }
+                    if root.sms-message != "": Text { text: root.sms-message; color: Theme.bad; wrap: word-wrap; }
+                    HorizontalLayout {
+                        spacing: 14px;
+                        vertical-stretch: 1;
+                        Rectangle {
+                            width: 340px;
+                            background: Theme.surface;
+                            border-radius: 20px;
+                            clip: true;
+                            VerticalLayout {
+                                padding: 14px;
+                                spacing: 8px;
+                                HorizontalLayout {
+                                    Text { text: "Conversaciones"; font-size: 16px; color: Theme.text; horizontal-stretch: 1; }
+                                    Pill { label: "Actualizar"; kind: 1; height: 28px; min-width: 80px; clicked => { root.sms-refresh(); } }
+                                }
+                                ListView {
+                                    vertical-stretch: 1;
+                                    for t[i] in root.threads: Rectangle {
+                                        height: 54px;
+                                        border-radius: 12px;
+                                        background: i == root.sms-selected ? Theme.container : ta.has-hover ? Theme.surface2 : transparent;
+                                        VerticalLayout {
+                                            padding-left: 10px;
+                                            padding-right: 10px;
+                                            alignment: center;
+                                            HorizontalLayout {
+                                                spacing: 8px;
+                                                Text { text: t.title; color: Theme.text; font-weight: t.unread ? 700 : 400; overflow: elide; horizontal-stretch: 1; }
+                                                Text { text: t.time; color: Theme.muted; font-size: 11px; }
+                                            }
+                                            Text { text: t.snippet; color: Theme.muted; font-size: 12px; overflow: elide; }
+                                        }
+                                        ta := TouchArea { mouse-cursor: pointer; clicked => { root.sms-open(i); } }
+                                    }
+                                }
+                            }
+                        }
+                        Rectangle {
+                            background: Theme.surface;
+                            border-radius: 20px;
+                            clip: true;
+                            VerticalLayout {
+                                padding: 14px;
+                                spacing: 8px;
+                                Text { text: root.sms-title == "" ? "Elige una conversación" : root.sms-title; font-size: 16px; color: Theme.text; overflow: elide; }
+                                ListView {
+                                    vertical-stretch: 1;
+                                    for m in root.messages: Rectangle {
+                                        height: bubble.height + 8px;
+                                        bubble := Rectangle {
+                                            x: m.mine ? parent.width - self.width - 6px : 6px;
+                                            width: min(parent.width * 0.75, 420px);
+                                            height: msg-text.preferred-height + 24px;
+                                            border-radius: 14px;
+                                            background: m.mine ? Theme.container : Theme.surface2;
+                                            VerticalLayout {
+                                                padding: 10px;
+                                                spacing: 2px;
+                                                msg-text := Text { text: m.text; color: m.mine ? Theme.on-container : Theme.text; wrap: word-wrap; }
+                                            }
+                                        }
+                                    }
+                                }
+                                HorizontalLayout {
+                                    spacing: 8px;
+                                    sms-box := LineEdit { placeholder-text: "Escribe un mensaje"; enabled: root.sms-title != ""; accepted(t) => { root.sms-send(t); self.text = ""; } }
+                                    Pill { label: "Enviar"; kind: 4; y: 2px; enabled: root.sms-title != ""; clicked => { root.sms-send(sms-box.text); sms-box.text = ""; } }
+                                }
                             }
                         }
                     }
                 }
 
                 // ------------------------------------------------------ Aplicaciones
-                if root.page == 2: VerticalLayout {
+                if root.page == 4: VerticalLayout {
                     spacing: 12px;
                     Text { text: "Aplicaciones del móvil"; font-size: 26px; color: Theme.text; }
                     HorizontalLayout {
@@ -354,7 +596,7 @@ export component AppWindow inherits Window {
                 }
 
                 // ------------------------------------------------------ Mensajería
-                if root.page == 3: VerticalLayout {
+                if root.page == 5: VerticalLayout {
                     spacing: 12px;
                     alignment: start;
                     Text { text: "Mensajería"; font-size: 26px; color: Theme.text; }
@@ -376,7 +618,7 @@ export component AppWindow inherits Window {
                 }
 
                 // ------------------------------------------------------ Móviles y ajustes
-                if root.page == 4: ScrollView {
+                if root.page == 6: ScrollView {
                     VerticalLayout {
                         spacing: 14px;
                         alignment: start;
@@ -414,6 +656,33 @@ export component AppWindow inherits Window {
                             SwitchRow { label: "Iniciar con Windows (en segundo plano)"; checked <=> root.autostart; toggled(v) => { root.toggled-autostart(v); } }
                             SwitchRow { label: "Silenciar el resto de sonidos del PC mientras suena una llamada"; hint: "No toca mejoradores de audio como FxSound o Voicemeeter."; checked <=> root.mute-on-call; toggled(v) => { root.toggled-mute(v); } }
                             SwitchRow { label: "Modo completo"; hint: "Permite abrir apps del móvil en el PC (necesita adb y scrcpy)."; checked <=> root.advanced; toggled(v) => { root.toggled-advanced(v); } }
+                        }
+                        Card {
+                            title: "Seguridad y avisos";
+                            SwitchRow { label: "Bloquear Windows al alejarte con el móvil"; hint: "Pasados 15 s sin el móvil se bloquea la sesión de Windows. Se abre con tu clave de Windows."; checked <=> root.lock-windows; toggled(v) => { root.toggled-lock-windows(v); } }
+                            SwitchRow { label: "Ocultar el contenido de los avisos"; hint: "Los avisos emergentes muestran solo la app. Útil al compartir pantalla."; checked <=> root.hide-content; toggled(v) => { root.toggled-hide(v); } }
+                            Text { text: "Silenciar avisos emergentes que contengan estas palabras (separadas por comas)"; color: Theme.text; wrap: word-wrap; }
+                            LineEdit { text <=> root.mute-words; placeholder-text: "oferta, promoción, sorteo"; edited(t) => { root.mute-words-edited(t); } }
+                        }
+                        Card {
+                            title: "Copias y envío rápido";
+                            SwitchRow { label: "Copia automática de las fotos nuevas al PC"; hint: "Solo las que hagas desde que lo actives. Se guardan en Imágenes\\SyncroUmbral\\Copia."; checked <=> root.photo-backup; toggled(v) => { root.toggled-backup(v); } }
+                            HorizontalLayout {
+                                spacing: 10px;
+                                alignment: start;
+                                Pill { label: "Añadir «Enviar al móvil» al Explorador"; kind: 1; clicked => { root.context-menu(true); } }
+                                Pill { label: "Quitarlo"; kind: 2; clicked => { root.context-menu(false); } }
+                            }
+                        }
+                        Card {
+                            title: "Acciones del móvil";
+                            HorizontalLayout {
+                                spacing: 10px;
+                                alignment: start;
+                                Pill { label: root.ringing ? "Parar de sonar" : "Hacer sonar el móvil"; kind: root.ringing ? 5 : 1; clicked => { root.ring-phone(!root.ringing); } }
+                                Pill { label: "Enviar portapapeles al móvil"; kind: 1; clicked => { root.send-clipboard(); } }
+                            }
+                            Text { text: "El móvil suena al máximo aunque esté en silencio, hasta 1 minuto. Para enviar el portapapeles del móvil al PC usa el botón de la notificación permanente."; color: Theme.muted; font-size: 12px; wrap: word-wrap; }
                         }
                         Card {
                             title: "Herramientas";

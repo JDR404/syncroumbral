@@ -346,6 +346,27 @@ class MainActivity : Activity() {
             { CallOps.canAnswerPhone(this) }, { askAnswerCalls() }
         )
         rows += PermRow(
+            "Contactos", "Ver tus contactos en el PC para llamarles (opcional).", null,
+            { checkSelfPermission(Manifest.permission.READ_CONTACTS) == PackageManager.PERMISSION_GRANTED },
+            { requestPermissions(arrayOf(Manifest.permission.READ_CONTACTS), 4) }
+        )
+        rows += PermRow(
+            "Llamar y registro de llamadas", "Marcar desde el PC y ver el historial de llamadas (opcional).", null,
+            {
+                checkSelfPermission(Manifest.permission.CALL_PHONE) == PackageManager.PERMISSION_GRANTED &&
+                    checkSelfPermission(Manifest.permission.READ_CALL_LOG) == PackageManager.PERMISSION_GRANTED
+            },
+            { requestPermissions(arrayOf(Manifest.permission.CALL_PHONE, Manifest.permission.READ_CALL_LOG), 5) }
+        )
+        rows += PermRow(
+            "Mensajes SMS", "Leer y enviar SMS desde el PC (opcional; no incluye MMS ni RCS).", null,
+            {
+                checkSelfPermission(Manifest.permission.READ_SMS) == PackageManager.PERMISSION_GRANTED &&
+                    checkSelfPermission(Manifest.permission.SEND_SMS) == PackageManager.PERMISSION_GRANTED
+            },
+            { requestPermissions(arrayOf(Manifest.permission.READ_SMS, Manifest.permission.SEND_SMS), 6) }
+        )
+        rows += PermRow(
             "Mostrar sobre otras apps", "Necesario para contestar llamadas de WhatsApp y similares desde el PC.", null,
             { CallOps.canOverlay(this) }, { askOverlay() }
         )

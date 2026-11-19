@@ -56,6 +56,25 @@ baja: van a la lista pero no abren la ventana emergente.
 
 Las notificaciones de llamada (`call: true`) se envían aunque Android las marque "en curso"; `incoming: true` indica llamada entrante (Android 12 o superior).
 
+### Galería, contactos, llamadas, SMS y buscar el móvil (0.4.0)
+
+Todas son peticiones `req` con la app desbloqueada; los permisos del móvil son opcionales y, si faltan, la respuesta es un error legible.
+
+| op | parámetros | respuesta |
+|---|---|---|
+| `media_recent` | `offset`, `limit` (máx. 60), `refresh` | `items[{path,name,mtime,size,video}]`, `total`. Recorre DCIM, Pictures y Movies (profundidad 3), más nuevos primero |
+| `media_thumb` | `paths` (máx. 12) | `thumbs{path: jpeg 240 px b64}` |
+| `contacts` | `q` (opcional) | `items[{name,numbers[]}]` (máx. 400) |
+| `calllog` | `limit` (máx. 200) | `items[{number,name,type,date,secs}]` (`type` de Android: 1 entrante, 2 saliente, 3 perdida...) |
+| `dial` | `number` | inicia la llamada con `TelecomManager.placeCall` |
+| `find_ring` | `on` | hace sonar el móvil al máximo (alarma) hasta 60 s; `on` indica si suena |
+| `sms_threads` | | `items[{address,name,snippet,date,mine,unread}]` (máx. 60) |
+| `sms_list` | `address`, `limit` (máx. 300) | `items[{text,date,mine}]`, más nuevos primero |
+| `sms_send` | `address`, `text` (máx. 1000) | envía por SMS (varias partes si hace falta) |
+| `phone_perms`, `sms_perms` | | permisos concedidos |
+
+El botón «Copiar al PC» de la notificación permanente lee el portapapeles del móvil y manda `{"t":"share_text","text":"..."}` (ya existente).
+
 ## Descubrimiento
 El PC anuncia `_umbral._tcp.local.` por mDNS con el puerto 47600 y el TXT `fp=<16 primeros hex de la huella>`.
 Si las direcciones guardadas no responden, el móvil busca ese servicio, acepta solo IPv4 de la red (no bucle local ni enlace local)
