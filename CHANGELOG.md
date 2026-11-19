@@ -1,5 +1,13 @@
 # Cambios
 
+## Sin publicar
+
+### Distribución y licencia
+- Licencia **GPL-3.0-or-later** (`LICENSE`), compatible con Slint bajo GPLv3.
+- Página del proyecto: https://www.syncroapp.dev/umbral/ (política de firma y privacidad).
+- Compilación del `.exe` en **GitHub Actions** (`.github/workflows/build-windows.yml`): pruebas, compilación y huella SHA-256 del ejecutable.
+- Firma de Windows con **SignPath Foundation** preparada pero inactiva hasta que aprueben el proyecto (`.signpath/artifact-configuration.xml`, trabajo `firmar` condicionado a variables del repositorio). Guía en `docs/FIRMA.md`. Mientras tanto los ejecutables siguen **sin firma de Windows**.
+
 ## 0.6.0 — 2026-11-19
 
 ### Correcciones importantes

@@ -178,8 +178,8 @@ Fuentes: [Microsoft Phone Link](https://support.microsoft.com/en-US/phone-link?f
 
 | Fase | Qué | Por qué |
 |---|---|---|
-| Hecho (0.4.0) | **Interfaz nativa con [Slint](https://slint.dev)** en lugar de WebView2 ([`desktop-slint/`](desktop-slint), ver [docs/SLINT.md](docs/SLINT.md)) | Un proceso y ~8 MB privados frente a 7 procesos y ~230 MB. Archivos, notificaciones con respuesta y controles, llamadas, apps del móvil en el PC, mensajería en una ventana aislada de Edge, vinculación por QR, bandeja e instancia única, probados con un Pixel 9 Pro. Revisar la licencia de Slint (GPLv3, escritorio gratuito con atribución, o comercial) antes de distribuir |
-| Después | Firma de código y actualizador firmado | Evitar SmartScreen y Play Protect y poder repartir parches (S-11 de la auditoría) |
+| Hecho (0.4.0) | **Interfaz nativa con [Slint](https://slint.dev)** en lugar de WebView2 ([`desktop-slint/`](desktop-slint), ver [docs/SLINT.md](docs/SLINT.md)) | Un proceso y ~8 MB privados frente a 7 procesos y ~230 MB. Archivos, notificaciones con respuesta y controles, llamadas, apps del móvil en el PC, mensajería en una ventana aislada de Edge, vinculación por QR, bandeja e instancia única, probados con un Pixel 9 Pro. Licencia resuelta: el proyecto es GPL-3.0-or-later, compatible con Slint bajo GPLv3 |
+| En curso | Firma de código de Windows (SignPath Foundation, ver [docs/FIRMA.md](docs/FIRMA.md)); el actualizador ya va firmado | Evitar SmartScreen y Play Protect y poder repartir parches (S-11 de la auditoría) |
 | Después | Bluetooth LE como segundo factor de proximidad | La presencia actual es "misma red", no "cerca" (S-03) |
 | Continuo | `cargo audit` y SBOM en la compilación, revisión externa | Antes de repartirla a terceros |
 

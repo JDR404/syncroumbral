@@ -41,6 +41,6 @@ Lo siguiente es lo que se necesita; los detalles exactos cambian y deben confirm
 
 ## Pendiente de decidir por SyncroApp
 
-- Licencia del código (hoy sin licencia: todos los derechos reservados).
+- Licencia del código: **GPL-3.0-or-later** (archivo `LICENSE`), compatible con Slint bajo su licencia GPLv3.
 - Si se publica en Play Store o solo por distribución directa.
 - Icono y capturas definitivos de la ficha.
