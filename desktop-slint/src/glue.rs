@@ -31,6 +31,8 @@ struct PaneState {
     parent: Option<String>,
     rows: Vec<Row>,
     sel: Vec<bool>,
+    /// Vistas previas de la carpeta abierta, por nombre de archivo.
+    thumbs: HashMap<String, slint::SharedPixelBuffer<slint::Rgba8Pixel>>,
 }
 
 #[derive(Default)]
@@ -189,6 +191,74 @@ fn decode_thumb(b64: &str) -> Option<slint::SharedPixelBuffer<slint::Rgba8Pixel>
         _ => return None,
     }
     Some(buf)
+}
+
+/// 1 si el nombre es de una imagen, 2 si es de un vídeo, 0 si es otra cosa.
+fn media_kind(name: &str) -> i32 {
+    let ext = name.rsplit('.').next().unwrap_or("").to_lowercase();
+    match ext.as_str() {
+        "jpg" | "jpeg" | "png" | "gif" | "webp" | "bmp" | "heic" | "heif" => 1,
+        "mp4" | "mkv" | "mov" | "avi" | "webm" | "3gp" | "m4v" => 2,
+        _ => 0,
+    }
+}
+
+/// Vista previa de una imagen del PC (jpg o png) de hasta 160 px de lado. None si no se puede leer.
+fn local_thumb(path: &str) -> Option<slint::SharedPixelBuffer<slint::Rgba8Pixel>> {
+    const MAX: u32 = 160;
+    let ext = path.rsplit('.').next()?.to_lowercase();
+    let len = std::fs::metadata(path).ok()?.len();
+    if len > 40_000_000 || (ext == "png" && len > 12_000_000) {
+        return None;
+    }
+    let bytes = std::fs::read(path).ok()?;
+    let (w, h, px): (u32, u32, Vec<slint::Rgba8Pixel>) = match ext.as_str() {
+        "jpg" | "jpeg" => {
+            let mut d = jpeg_decoder::Decoder::new(&bytes[..]);
+            // Descodificar ya reducido: una foto de 12 MP se abre en una fracción del tiempo.
+            let (sw, sh) = d.scale(MAX as u16, MAX as u16).ok()?;
+            let raw = d.decode().ok()?;
+            let fmt = d.info()?.pixel_format;
+            let px: Vec<slint::Rgba8Pixel> = match fmt {
+                jpeg_decoder::PixelFormat::RGB24 => raw.chunks_exact(3).map(|p| slint::Rgba8Pixel { r: p[0], g: p[1], b: p[2], a: 255 }).collect(),
+                jpeg_decoder::PixelFormat::L8 => raw.iter().map(|&p| slint::Rgba8Pixel { r: p, g: p, b: p, a: 255 }).collect(),
+                _ => return None,
+            };
+            (sw as u32, sh as u32, px)
+        }
+        "png" => {
+            let mut dec = png::Decoder::new(std::io::Cursor::new(bytes));
+            dec.set_transformations(png::Transformations::EXPAND | png::Transformations::STRIP_16);
+            let mut r = dec.read_info().ok()?;
+            let mut buf = vec![0; r.output_buffer_size()];
+            let info = r.next_frame(&mut buf).ok()?;
+            let px: Vec<slint::Rgba8Pixel> = match info.color_type {
+                png::ColorType::Rgba => buf.chunks_exact(4).map(|p| slint::Rgba8Pixel { r: p[0], g: p[1], b: p[2], a: p[3] }).collect(),
+                png::ColorType::Rgb => buf.chunks_exact(3).map(|p| slint::Rgba8Pixel { r: p[0], g: p[1], b: p[2], a: 255 }).collect(),
+                png::ColorType::GrayscaleAlpha => buf.chunks_exact(2).map(|p| slint::Rgba8Pixel { r: p[0], g: p[0], b: p[0], a: p[1] }).collect(),
+                png::ColorType::Grayscale => buf.iter().map(|&p| slint::Rgba8Pixel { r: p, g: p, b: p, a: 255 }).collect(),
+                _ => return None,
+            };
+            (info.width, info.height, px)
+        }
+        _ => return None,
+    };
+    if w == 0 || h == 0 || px.len() < (w * h) as usize {
+        return None;
+    }
+    // Reducción por vecino más cercano hasta MAX px de lado (basta para una miniatura).
+    let k = (w.max(h) as f32 / MAX as f32).max(1.0);
+    let (tw, th) = (((w as f32 / k) as u32).max(1), ((h as f32 / k) as u32).max(1));
+    let mut out = slint::SharedPixelBuffer::<slint::Rgba8Pixel>::new(tw, th);
+    let dst = out.make_mut_slice();
+    for y in 0..th {
+        let sy = ((y as f32 * k) as u32).min(h - 1);
+        for x in 0..tw {
+            let sx = ((x as f32 * k) as u32).min(w - 1);
+            dst[(y * tw + x) as usize] = px[(sy * w + sx) as usize];
+        }
+    }
+    Some(out)
 }
 
 fn base64_decode(s: &str) -> Option<Vec<u8>> {
@@ -481,16 +551,19 @@ impl Ctx {
             let f = self.files.lock().unwrap();
             let p = if phone { &f.phone } else { &f.pc };
             let vis = p.visible();
-            let items: Vec<FileItem> = vis
+            // Los datos viajan sin imágenes de Slint (no se pueden enviar entre hilos); se convierten ya en el hilo de la interfaz.
+            let items: Vec<(String, String, bool, bool, i32, Option<slint::SharedPixelBuffer<slint::Rgba8Pixel>>)> = vis
                 .iter()
                 .map(|&k| {
                     let r = &p.rows[k];
-                    FileItem {
-                        name: r.name.clone().into(),
-                        meta: if r.dir { String::new() } else { format!("{}  {}", fmt_size(r.size), fmt_date(r.mtime)) }.into(),
-                        dir: r.dir,
-                        selected: p.sel[k],
-                    }
+                    (
+                        r.name.clone(),
+                        if r.dir { String::new() } else { format!("{}  {}", fmt_size(r.size), fmt_date(r.mtime)) },
+                        r.dir,
+                        p.sel[k],
+                        if r.dir { 0 } else { media_kind(&r.name) },
+                        p.thumbs.get(&r.name).cloned(),
+                    )
                 })
                 .collect();
             let count = p.sel.iter().filter(|s| **s).count();
@@ -511,6 +584,18 @@ impl Ctx {
             path
         };
         self.ui(move |w| {
+            let items: Vec<FileItem> = items
+                .into_iter()
+                .map(|(name, meta, dir, selected, kind, thumb)| FileItem {
+                    name: name.into(),
+                    meta: meta.into(),
+                    dir,
+                    selected,
+                    kind,
+                    has_thumb: thumb.is_some(),
+                    thumb: thumb.map(slint::Image::from_rgba8).unwrap_or_default(),
+                })
+                .collect();
             if phone {
                 w.set_phone_files(model(items));
                 w.set_phone_path(shown.into());
@@ -541,9 +626,11 @@ impl Ctx {
                         f.pc.sel = vec![false; f.pc.rows.len()];
                         f.pc.path = l.path;
                         f.pc.parent = l.parent;
+                        f.pc.thumbs.clear();
                     }
                     me.ui(|w| w.set_pc_filter("".into()));
                     me.apply_files(false);
+                    me.load_thumbs(false);
                 }
                 Err(e) => me.ui(move |w| w.set_pc_message(e.into())),
             }
@@ -580,9 +667,11 @@ impl Ctx {
                         f.phone.rows = rows;
                         f.phone.parent = if p.is_empty() { None } else { Some(p.rfind('/').map_or(String::new(), |i| p[..i].to_string())) };
                         f.phone.path = p;
+                        f.phone.thumbs.clear();
                     }
                     me.ui(|w| w.set_phone_filter("".into()));
                     me.apply_files(true);
+                    me.load_thumbs(true);
                     if let Some(fr) = free {
                         me.ui(move |w| {
                             let cur = w.get_phone_footer().to_string();
@@ -599,6 +688,68 @@ impl Ctx {
                 }
             }
         });
+    }
+
+    /// Pide las vistas previas de las imágenes y vídeos de la carpeta abierta; van apareciendo poco a poco.
+    fn load_thumbs(self: &Arc<Self>, phone: bool) {
+        let (path, names): (String, Vec<String>) = {
+            let f = self.files.lock().unwrap();
+            let p = if phone { &f.phone } else { &f.pc };
+            (
+                p.path.clone(),
+                p.rows.iter().filter(|r| !r.dir && media_kind(&r.name) > 0 && (phone || r.size <= 40_000_000)).take(150).map(|r| r.name.clone()).collect(),
+            )
+        };
+        if names.is_empty() {
+            return;
+        }
+        let me = self.clone();
+        if phone {
+            self.rt.spawn(async move {
+                for chunk in names.chunks(12) {
+                    let paths: Vec<String> = chunk.iter().map(|n| join_phone(&path, n)).collect();
+                    if let Ok(t) = me.core.call("media_thumb", json!({ "paths": paths })).await {
+                        let got: Vec<(String, slint::SharedPixelBuffer<slint::Rgba8Pixel>)> = chunk
+                            .iter()
+                            .zip(&paths)
+                            .filter_map(|(n, p)| decode_thumb(t["thumbs"][p.as_str()].as_str()?).map(|b| (n.clone(), b)))
+                            .collect();
+                        if !me.add_thumbs(true, &path, got) {
+                            return;
+                        }
+                    }
+                }
+            });
+        } else {
+            self.rt.spawn_blocking(move || {
+                let mut batch = Vec::new();
+                for n in names {
+                    if let Some(b) = local_thumb(&join_pc(&path, &n)) {
+                        batch.push((n, b));
+                    }
+                    if batch.len() >= 6 && !me.add_thumbs(false, &path, std::mem::take(&mut batch)) {
+                        return;
+                    }
+                }
+                if !batch.is_empty() {
+                    me.add_thumbs(false, &path, batch);
+                }
+            });
+        }
+    }
+
+    /// Guarda vistas previas recién llegadas. Devuelve false si el usuario ya cambió de carpeta (se abandona el trabajo).
+    fn add_thumbs(self: &Arc<Self>, phone: bool, path: &str, got: Vec<(String, slint::SharedPixelBuffer<slint::Rgba8Pixel>)>) -> bool {
+        {
+            let mut f = self.files.lock().unwrap();
+            let p = if phone { &mut f.phone } else { &mut f.pc };
+            if p.path != path {
+                return false;
+            }
+            p.thumbs.extend(got);
+        }
+        self.apply_files(phone);
+        true
     }
 
     fn selected(self: &Arc<Self>, phone: bool) -> Vec<Item> {

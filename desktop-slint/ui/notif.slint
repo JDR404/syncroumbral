@@ -1,6 +1,13 @@
 import { LineEdit } from "std-widgets.slint";
 import { Theme, Notif, Pill } from "common.slint";
 
+// Alto de una tarjeta según lo que lleve (respuesta, llamada, botones, código): lo usa también la rejilla de la página.
+export global NotifSize {
+    pure public function of(n: Notif) -> length {
+        return 64px + (n.reply-index >= 0 ? 46px : 0px) + (n.call ? 48px : 0px) + (n.actions.length > 0 && !n.call ? 42px : 0px) + (n.code != "" ? 42px : 0px);
+    }
+}
+
 // Tarjeta de notificación: fila de 64 px (icono, título y app, texto, hora, descartar) y, si procede, caja de respuesta y botones de llamada.
 export component NotifCard inherits Rectangle {
     in property <Notif> n;
@@ -13,7 +20,8 @@ export component NotifCard inherits Rectangle {
     callback copy-code(string);
     background: card-touch.has-hover ? Theme.surface2 : Theme.surface;
     border-radius: 16px;
-    height: 64px + (n.reply-index >= 0 ? 46px : 0px) + (n.call ? 48px : 0px) + (n.actions.length > 0 && !n.call ? 42px : 0px) + (n.code != "" ? 42px : 0px);
+    property <length> h: NotifSize.of(n);
+    height: root.h;
     animate background { duration: 120ms; }
     card-touch := TouchArea { }
     VerticalLayout {

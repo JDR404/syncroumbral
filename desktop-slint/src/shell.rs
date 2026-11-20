@@ -110,7 +110,17 @@ pub fn run() {
     {
         use slint::winit_030::{winit::event::WindowEvent, EventResult, WinitWindowAccessor};
         let c = ctx.clone();
+        let wk = win.as_weak();
         win.window().on_winit_window_event(move |_, ev| {
+            // Mientras se arrastra un archivo sobre la ventana, la zona de envío del panel derecho se ilumina.
+            let drag = match ev {
+                WindowEvent::HoveredFile(_) => Some(true),
+                WindowEvent::HoveredFileCancelled | WindowEvent::DroppedFile(_) => Some(false),
+                _ => None,
+            };
+            if let (Some(on), Some(w)) = (drag, wk.upgrade()) {
+                w.set_dragging(on);
+            }
             if let WindowEvent::DroppedFile(p) = ev {
                 glue::queue_send(&c, p.to_string_lossy().into_owned());
             }
@@ -157,6 +167,51 @@ pub fn run() {
                     }
                 }
             });
+            // Datos inventados para ver la galería y los paneles de archivos con muchas miniaturas, sin móvil.
+            if std::env::args().any(|a| a == "--test-fake") {
+                let w = win.as_weak();
+                slint::Timer::single_shot(std::time::Duration::from_millis(2500), move || {
+                    use crate::{AlbumItem, FileItem, Photo};
+                    use slint::{Model, ModelRc, Rgba8Pixel, SharedPixelBuffer, VecModel};
+                    let Some(w) = w.upgrade() else { return };
+                    let mk = |i: u32| {
+                        let mut b = SharedPixelBuffer::<Rgba8Pixel>::new(64, 64);
+                        for (n, p) in b.make_mut_slice().iter_mut().enumerate() {
+                            *p = Rgba8Pixel { r: ((i * 37) % 255) as u8, g: ((n as u32 % 64) * 4) as u8, b: ((n as u32 / 64) * 4) as u8, a: 255 };
+                        }
+                        slint::Image::from_rgba8(b)
+                    };
+                    let photos: Vec<Photo> = (0..90u32)
+                        .map(|i| Photo { path: format!("p{i}").into(), name: format!("foto{i}").into(), video: i % 7 == 0, selected: i % 5 == 0, has_thumb: true, thumb: mk(i) })
+                        .collect();
+                    w.set_photos(ModelRc::new(VecModel::from(photos)));
+                    let albums: Vec<AlbumItem> = ["Screenshots", "Instagram", "WhatsApp", "Camera", "PokemonGO", "Facebook", "Almacenamiento", "Download", "Syncrodomi", "Pictures"]
+                        .iter()
+                        .map(|n| AlbumItem { name: (*n).into(), count: 12, selected: false })
+                        .collect();
+                    w.set_albums(ModelRc::new(VecModel::from(albums)));
+                    w.set_gallery_message("36 de 843".into());
+                    let files: Vec<FileItem> = (0..60u32)
+                        .map(|i| FileItem {
+                            name: if i % 4 == 0 { format!("Documento_20261106112002121436905{i}.pdf") } else { format!("IMG_2026{i}.jpg") }.into(),
+                            meta: "9.1 KB  01/11/2026".into(),
+                            dir: i < 3,
+                            selected: i % 6 == 0,
+                            kind: if i % 4 == 0 { 0 } else { 1 },
+                            has_thumb: i % 4 != 0 && i >= 3,
+                            thumb: mk(i),
+                        })
+                        .collect();
+                    w.set_phone_message("".into());
+                    w.set_phone_path("Almacenamiento interno/Download".into());
+                    w.set_phone_files(ModelRc::new(VecModel::from(files)));
+                    if std::env::args().any(|a| a == "--test-grid") {
+                        w.set_phone_grid(true);
+                        w.set_pc_grid(true);
+                    }
+                    let _ = w.get_photos().row_count();
+                });
+            }
         }
     }
     if !background {

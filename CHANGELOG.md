@@ -2,6 +2,12 @@
 
 ## Sin publicar
 
+### Interfaz del PC
+- **Archivos con vista previa**: las imágenes (y, del móvil, también los vídeos) muestran su miniatura en ambos paneles, que van apareciendo poco a poco. Botón para alternar entre **lista** y **cuadrícula** en cada panel; en cuadrícula el nombre completo (y tamaño y fecha) aparece al pasar el ratón, y la casilla de la esquina marca el elemento.
+- **Zona de arrastre** en el panel derecho (reemplaza el «Consejo»): se ilumina al arrastrar un archivo sobre la ventana y dice claramente dónde queda cada cosa (carpeta abierta del móvil, `Descargas\SyncroUmbral` en el PC y destino de «Traer al PC»).
+- **Notificaciones en columnas**: las tarjetas se reparten por el ancho de la ventana en vez de ocupar una fila entera cada una.
+- Galería: los botones de álbum quedan siempre por encima de las fotos al hacer scroll.
+
 ### Distribución y licencia
 - Licencia **GPL-3.0-or-later** (`LICENSE`), compatible con Slint bajo GPLv3.
 - Página del proyecto: https://www.syncroapp.dev/umbral/, con política de firma (`#firma`) y **política de privacidad propia** (https://www.syncroapp.dev/umbral/privacidad).

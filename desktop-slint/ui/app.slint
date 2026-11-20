@@ -1,7 +1,7 @@
 // SyncroUmbral: interfaz nativa (sin WebView). Misma paleta y estructura que la versión HTML.
 import { LineEdit, ListView, ScrollView } from "std-widgets.slint";
 import { Theme, Icons, Icon, FileItem, Notif, NotifAction, ThreadItem, MsgItem, Photo, AlbumItem, ContactItem, CallItem, AppItem, DeviceItem, ServiceItem, Pill, Toggle, SwitchRow, NavItem, Pane } from "common.slint";
-import { NotifCard } from "notif.slint";
+import { NotifCard, NotifSize } from "notif.slint";
 import { ToastWindow } from "toast.slint";
 
 export { Theme, FileItem, Notif, NotifAction, ThreadItem, MsgItem, Photo, AlbumItem, ContactItem, CallItem, AppItem, DeviceItem, ServiceItem, ToastWindow }
@@ -121,6 +121,10 @@ export component AppWindow inherits Window {
     in property <string> transfer-text;
     in property <float> transfer-frac;
     in property <bool> transfer-active;
+    in-out property <bool> pc-grid: false;
+    in-out property <bool> phone-grid: false;
+    /// Verdadero mientras se arrastra un archivo del Explorador sobre la ventana.
+    in property <bool> dragging: false;
 
     // ---- notificaciones
     in property <[Notif]> notifs;
@@ -235,6 +239,7 @@ export component AppWindow inherits Window {
     property <int> acols: Math.max(1, Math.floor((root.content-w - 40px) / 138px));
     property <length> acell-w: (root.content-w - 40px) / Math.max(1, Math.floor((root.content-w - 40px) / 138px));
 
+    property <int> ncols: Math.max(1, Math.floor(root.content-w / 430px));
     property <int> scols: Math.max(1, Math.floor(root.content-w / 440px));
     property <length> scell-w: root.content-w / Math.max(1, Math.floor(root.content-w / 440px));
     property <string> page-title: root.page == 0 ? "Archivos" : root.page == 1 ? "Notificaciones" : root.page == 2 ? "Galería" : root.page == 3 ? "Llamadas"
@@ -406,6 +411,7 @@ export component AppWindow inherits Window {
                         vertical-stretch: 1;
                         Pane {
                             title: "Este PC";
+                            grid <=> root.pc-grid;
                             path: root.pc-path;
                             files: root.pc-files;
                             footer: root.pc-footer;
@@ -431,6 +437,7 @@ export component AppWindow inherits Window {
                         }
                         Pane {
                             title: "Móvil";
+                            grid <=> root.phone-grid;
                             path: root.phone-path;
                             files: root.phone-files;
                             footer: root.phone-footer;
@@ -478,22 +485,32 @@ export component AppWindow inherits Window {
                         Text { text: root.notif-hint; color: Theme.muted; vertical-alignment: center; overflow: elide; }
                     }
                     if root.notifs.length == 0: Text { text: "No hay notificaciones."; color: Theme.muted; }
-                    ListView {
+                    // Las tarjetas se reparten en columnas (de izquierda a derecha) para aprovechar el ancho de la ventana.
+                    ScrollView {
                         vertical-stretch: 1;
-                        for n in root.notifs: Rectangle {
-                            height: card.height + 8px;
-                            card := NotifCard {
-                                y: 0px;
-                                x: 0px;
-                                width: parent.width - 8px;
-                                n: n;
-                                status: root.call-status;
-                                dismissed => { root.notif-dismiss(n.key); }
-                                reply(t) => { root.notif-reply(n.key, n.reply-index, t); }
-                                answer => { root.call-answer(n.key); }
-                                end => { root.call-end(n.key); }
-                                action(i) => { root.notif-action(n.key, i); }
-                                copy-code(c) => { root.copy-code(c); }
+                        HorizontalLayout {
+                            spacing: 10px;
+                            padding-right: 4px;
+                            for c in root.ncols: VerticalLayout {
+                                alignment: start;
+                                for n[i] in root.notifs: Rectangle {
+                                    property <bool> mine: Math.mod(i, root.ncols) == c;
+                                    property <length> hh: self.mine ? NotifSize.of(n) + 8px : 0px;
+                                    height: self.hh;
+                                    if self.mine: NotifCard {
+                                        x: 0px;
+                                        y: 0px;
+                                        width: parent.width - 8px;
+                                        n: n;
+                                        status: root.call-status;
+                                        dismissed => { root.notif-dismiss(n.key); }
+                                        reply(t) => { root.notif-reply(n.key, n.reply-index, t); }
+                                        answer => { root.call-answer(n.key); }
+                                        end => { root.call-end(n.key); }
+                                        action(ai) => { root.notif-action(n.key, ai); }
+                                        copy-code(code) => { root.copy-code(code); }
+                                    }
+                                }
                             }
                         }
                     }
@@ -510,30 +527,35 @@ export component AppWindow inherits Window {
                         Pill { label: "Cargar más"; kind: 2; clicked => { root.gallery-more(); } }
                         Text { text: root.gallery-message; color: Theme.muted; vertical-alignment: center; overflow: elide; }
                     }
-                    // Álbumes: todas las carpetas con fotos o vídeos
-                    ScrollView {
+                    // Álbumes: todas las carpetas con fotos o vídeos. Fondo opaco y por encima de la rejilla: al hacer scroll las fotos nunca pasan sobre los botones.
+                    Rectangle {
                         height: 44px;
-                        HorizontalLayout {
-                            spacing: 8px;
-                            Rectangle {
-                                height: 34px;
-                                width: all-label.preferred-width + 28px;
-                                border-radius: 17px;
-                                background: root.album-selected < 0 ? Theme.container : Theme.surface;
-                                border-width: 1px;
-                                border-color: root.album-selected < 0 ? Theme.container : Theme.border;
-                                all-label := Text { text: "Todo"; color: root.album-selected < 0 ? Theme.on-container : Theme.text; font-weight: 500; horizontal-alignment: center; vertical-alignment: center; }
-                                TouchArea { mouse-cursor: pointer; clicked => { root.gallery-album(-1); } }
-                            }
-                            for al[i] in root.albums: Rectangle {
-                                height: 34px;
-                                width: al-label.preferred-width + 28px;
-                                border-radius: 17px;
-                                background: i == root.album-selected ? Theme.container : Theme.surface;
-                                border-width: 1px;
-                                border-color: i == root.album-selected ? Theme.container : Theme.border;
-                                al-label := Text { text: al.name + "  " + al.count; color: i == root.album-selected ? Theme.on-container : Theme.text; font-weight: 500; horizontal-alignment: center; vertical-alignment: center; }
-                                TouchArea { mouse-cursor: pointer; clicked => { root.gallery-album(i); } }
+                        z: 5;
+                        background: Theme.bg;
+                        ScrollView {
+                            height: 44px;
+                            HorizontalLayout {
+                                spacing: 8px;
+                                Rectangle {
+                                    height: 34px;
+                                    width: all-label.preferred-width + 28px;
+                                    border-radius: 17px;
+                                    background: root.album-selected < 0 ? Theme.container : Theme.surface;
+                                    border-width: 1px;
+                                    border-color: root.album-selected < 0 ? Theme.container : Theme.border;
+                                    all-label := Text { text: "Todo"; color: root.album-selected < 0 ? Theme.on-container : Theme.text; font-weight: 500; horizontal-alignment: center; vertical-alignment: center; }
+                                    TouchArea { mouse-cursor: pointer; clicked => { root.gallery-album(-1); } }
+                                }
+                                for al[i] in root.albums: Rectangle {
+                                    height: 34px;
+                                    width: al-label.preferred-width + 28px;
+                                    border-radius: 17px;
+                                    background: i == root.album-selected ? Theme.container : Theme.surface;
+                                    border-width: 1px;
+                                    border-color: i == root.album-selected ? Theme.container : Theme.border;
+                                    al-label := Text { text: al.name + "  " + al.count; color: i == root.album-selected ? Theme.on-container : Theme.text; font-weight: 500; horizontal-alignment: center; vertical-alignment: center; }
+                                    TouchArea { mouse-cursor: pointer; clicked => { root.gallery-album(i); } }
+                                }
                             }
                         }
                     }
@@ -545,7 +567,7 @@ export component AppWindow inherits Window {
                         border-color: Theme.border;
                         clip: true;
                         ScrollView {
-                            viewport-height: Math.ceil(root.photos.length / root.gcols) * root.gcell-w + 24px;
+                            content-height: Math.ceil(root.photos.length / root.gcols) * root.gcell-w + 24px;
                             for p[i] in root.photos: Rectangle {
                                 x: Math.mod(i, root.gcols) * root.gcell-w + 14px;
                                 y: Math.floor(i / root.gcols) * root.gcell-w + 12px;
@@ -740,7 +762,7 @@ export component AppWindow inherits Window {
                         border-color: Theme.border;
                         clip: true;
                         ScrollView {
-                            viewport-height: Math.ceil(root.apps.length / root.acols) * 112px + 24px;
+                            content-height: Math.ceil(root.apps.length / root.acols) * 112px + 24px;
                             for a[i] in root.apps: AppTile {
                                 x: Math.mod(i, root.acols) * root.acell-w + 14px;
                                 y: Math.floor(i / root.acols) * 112px + 12px;
@@ -770,7 +792,7 @@ export component AppWindow inherits Window {
                     }
                     ScrollView {
                         vertical-stretch: 1;
-                        viewport-height: Math.ceil(root.services.length / root.scols) * 104px + 12px;
+                        content-height: Math.ceil(root.services.length / root.scols) * 104px + 12px;
                         for s[i] in root.services: Rectangle {
                             x: Math.mod(i, root.scols) * root.scell-w;
                             y: Math.floor(i / root.scols) * 104px;
@@ -965,15 +987,36 @@ export component AppWindow inherits Window {
                         padding: 14px;
                         spacing: 4px;
                         alignment: start;
-                        Text { text: "Acciones rápidas"; color: Theme.text; font-size: 15px; font-weight: 600; padding-left: 4px; }
+                        Text { text: "Acciones rápidas"; color: Theme.text; font-size: 15px; font-weight: 600; }
                         QuickAction { icon-d: Icons.clipboard; title: "Portapapeles al móvil"; hint: "Copia lo que tengas en el PC al móvil"; clicked => { root.send-clipboard(); } }
                         QuickAction { icon-d: Icons.sound; title: root.ringing ? "Parar de sonar" : "Hacer sonar el móvil"; hint: "Suena al máximo hasta 1 minuto"; active: root.ringing; clicked => { root.ring-phone(!root.ringing); } }
                         QuickAction { icon-d: Icons.folder; title: "Enviar archivos"; hint: "Ve a Archivos o arrástralos a la ventana"; clicked => { root.page = 0; root.page-changed(0); } }
                         QuickAction { icon-d: Icons.image; title: "Ver la galería"; hint: "Fotos y vídeos por álbum"; clicked => { root.page = 2; root.page-changed(2); } }
                         QuickAction { icon-d: Icons.copy; title: "Del móvil al PC"; hint: "Botón «Copiar al PC» en la notificación del móvil"; clicked => { } }
                         Rectangle { height: 8px; }
-                        Text { text: "Consejo"; color: Theme.muted; font-size: 12px; font-weight: 600; padding-left: 4px; }
-                        Text { text: "Arrastra archivos desde el Explorador sobre esta ventana para enviarlos a la carpeta del móvil que tengas abierta."; color: Theme.muted; font-size: 12px; wrap: word-wrap; }
+                        // Zona de envío: se ilumina al arrastrar un archivo sobre la ventana y dice dónde quedará cada cosa.
+                        Rectangle {
+                            border-radius: 16px;
+                            background: root.dragging ? #12404a : Theme.surface2;
+                            border-width: root.dragging ? 2px : 1.5px;
+                            border-color: root.dragging ? Theme.primary : Theme.line;
+                            animate background { duration: 120ms; }
+                            VerticalLayout {
+                                padding: 14px;
+                                spacing: 8px;
+                                HorizontalLayout {
+                                    spacing: 8px;
+                                    Icon { d: Icons.upload; tint: root.dragging ? Theme.primary : Theme.muted; y: 1px; }
+                                    Text { text: root.dragging ? "Suelta para enviar al móvil" : "Arrastra archivos aquí"; color: Theme.text; font-size: 14px; font-weight: 600; vertical-alignment: center; horizontal-stretch: 1; overflow: elide; }
+                                }
+                                Text { text: "Suéltalos desde el Explorador en cualquier parte de la ventana."; color: Theme.muted; font-size: 12px; wrap: word-wrap; }
+                                Rectangle { height: 1px; background: Theme.border; }
+                                Text { text: "Dónde quedan"; color: Theme.muted; font-size: 11px; font-weight: 600; }
+                                Text { text: "Al móvil: " + (root.phone-path == "" ? "Almacenamiento interno" : root.phone-path) + ". Es la carpeta del móvil que tengas abierta en Archivos."; color: Theme.text; font-size: 12px; wrap: word-wrap; }
+                                Text { text: "Del móvil al PC: Descargas\\SyncroUmbral, lo que compartes o copias desde el móvil."; color: Theme.text; font-size: 12px; wrap: word-wrap; }
+                                Text { text: "Con «Traer al PC»: " + (root.pc-path == "" ? "la carpeta abierta de Este PC" : root.pc-path) + "."; color: Theme.text; font-size: 12px; wrap: word-wrap; }
+                            }
+                        }
                     }
                 }
             }

@@ -45,6 +45,7 @@ variar por modelo de teléfono y versión.
 | M11 | Mensajería: servicios propios (cualquier web https) y más servicios incluidos | Hecho (0.6.0) | |
 | M12 | Actualizaciones firmadas | Hecho (0.6.0) | Clave privada fuera del repositorio |
 | M13 | Compilación en GitHub Actions y firma de Windows con SignPath Foundation | Solicitud enviada (2026-11-19), a la espera de respuesta | Flujo `.github/workflows/build-windows.yml`, `.signpath/artifact-configuration.xml` y guía `docs/FIRMA.md`; hasta que aprueben el proyecto los `.exe` siguen sin firmar |
+| M14 | Vista previa de archivos, vista en cuadrícula, zona de arrastre con destinos y notificaciones en columnas | Hecho | Miniaturas de jpg/png del PC y de imágenes/vídeos del móvil (hasta 150 por carpeta); no hay vista previa de PDF ni documentos |
 | M9 | Varios PC y varios móviles | Pendiente | El PC ya admite varios móviles vinculados; falta un cambio de móvil activo y que el móvil recuerde varios PC |
 
 ## Cómo se decide qué sigue

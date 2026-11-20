@@ -1,4 +1,4 @@
-import { ListView, LineEdit } from "std-widgets.slint";
+import { ListView, LineEdit, ScrollView } from "std-widgets.slint";
 import "fonts/Inter-Regular.ttf";
 import "fonts/Inter-Medium.ttf";
 import "fonts/Inter-SemiBold.ttf";
@@ -48,6 +48,10 @@ export global Icons {
     out property <string> check: "M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z";
     out property <string> file: "M6 2c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6H6zm7 7V3.5L18.5 9H13z";
     out property <string> add: "M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z";
+    out property <string> view-grid: "M3 3v8h8V3H3zm6 6H5V5h4v4zm-6 4v8h8v-8H3zm6 6H5v-4h4v4zm4-16v8h8V3h-8zm6 6h-4V5h4v4zm-6 4v8h8v-8h-8zm6 6h-4v-4h4v4z";
+    out property <string> view-list: "M3 14h4v-4H3v4zm0 5h4v-4H3v4zM3 9h4V5H3v4zm5 5h13v-4H8v4zm0 5h13v-4H8v4zM8 5v4h13V5H8z";
+    out property <string> play: "M8 5v14l11-7z";
+    out property <string> upload: "M9 16h6v-6h4l-7-7-7 7h4zm-4 2h14v2H5z";
     out property <string> copy: "M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z";
 }
 
@@ -70,6 +74,10 @@ export struct FileItem {
     meta: string,
     dir: bool,
     selected: bool,
+    /// 1 imagen, 2 vídeo, 0 cualquier otro archivo.
+    kind: int,
+    has-thumb: bool,
+    thumb: image,
 }
 
 export struct NotifAction {
@@ -308,7 +316,7 @@ export component FileRow inherits Rectangle {
     in property <FileItem> item;
     callback toggled();
     callback opened();
-    height: 40px;
+    height: 46px;
     border-radius: 12px;
     background: item.selected ? Theme.container : touch.has-hover ? Theme.surface2 : transparent;
     // Una carpeta se abre con un clic; un archivo se marca con un clic. La casilla de la izquierda marca cualquiera de los dos.
@@ -335,7 +343,24 @@ export component FileRow inherits Rectangle {
             }
             box := TouchArea { mouse-cursor: pointer; clicked => { root.toggled(); } }
         }
-        Icon { d: item.dir ? Icons.folder : Icons.file; tint: item.dir ? Theme.folder : Theme.muted; y: (parent.height - self.height) / 2; }
+        Rectangle {
+            width: 34px;
+            Rectangle {
+                width: 34px;
+                height: 34px;
+                y: (parent.height - self.height) / 2;
+                border-radius: 8px;
+                background: item.has-thumb ? Theme.surface3 : transparent;
+                clip: true;
+                if item.has-thumb: Image { source: item.thumb; width: parent.width; height: parent.height; image-fit: cover; }
+                if !item.has-thumb: Icon {
+                    d: item.dir ? Icons.folder : item.kind == 2 ? Icons.play : item.kind == 1 ? Icons.image : Icons.file;
+                    tint: item.dir ? Theme.folder : Theme.muted;
+                    x: 7px;
+                    y: 7px;
+                }
+            }
+        }
         Text {
             text: item.name;
             color: item.selected ? Theme.on-container : Theme.text;
@@ -353,12 +378,74 @@ export component FileRow inherits Rectangle {
     }
 }
 
+// Casilla de un elemento del modo cuadrícula: vista previa grande, nombre completo al pasar el ratón.
+export component FileTile inherits Rectangle {
+    in property <FileItem> item;
+    callback toggled();
+    callback opened();
+    border-radius: 12px;
+    background: Theme.surface2;
+    clip: true;
+    if item.has-thumb: Image { source: item.thumb; width: parent.width; height: parent.height; image-fit: cover; }
+    if !item.has-thumb: VerticalLayout {
+        padding: 8px;
+        spacing: 6px;
+        alignment: center;
+        HorizontalLayout {
+            alignment: center;
+            Icon {
+                d: item.dir ? Icons.folder : item.kind == 2 ? Icons.play : item.kind == 1 ? Icons.image : Icons.file;
+                tint: item.dir ? Theme.folder : Theme.muted;
+                width: 36px;
+                height: 36px;
+            }
+        }
+        Text { text: item.name; color: Theme.text; font-size: 11px; wrap: word-wrap; horizontal-alignment: center; overflow: elide; height: 30px; }
+    }
+    // Clic: una carpeta se abre y un archivo se marca. La casilla de la esquina marca cualquiera de los dos.
+    touch := TouchArea {
+        mouse-cursor: pointer;
+        clicked => { if item.dir { root.opened(); } else { root.toggled(); } }
+        double-clicked => { root.opened(); }
+    }
+    if item.has-thumb && item.kind == 2: Rectangle {
+        x: parent.width - 32px;
+        y: 8px;
+        width: 24px;
+        height: 22px;
+        border-radius: 6px;
+        background: #000000a0;
+        Text { text: "▶"; color: white; font-size: 11px; horizontal-alignment: center; vertical-alignment: center; }
+    }
+    if touch.has-hover: Rectangle {
+        y: parent.height - self.height;
+        height: name-label.preferred-height + (item.meta != "" ? 22px : 12px);
+        background: #000000c8;
+        name-label := Text { x: 8px; y: 6px; width: parent.width - 16px; text: item.name; color: white; font-size: 11px; font-weight: 500; wrap: word-wrap; }
+        if item.meta != "": Text { x: 8px; y: name-label.y + name-label.preferred-height + 2px; width: parent.width - 16px; text: item.meta; color: #d0d6d8; font-size: 10px; overflow: elide; }
+    }
+    Rectangle { border-radius: 12px; border-width: item.selected ? 3px : 0px; border-color: Theme.primary; background: item.selected ? #4fd8eb30 : transparent; }
+    if touch.has-hover || item.selected: Rectangle {
+        x: 6px;
+        y: 6px;
+        width: 22px;
+        height: 22px;
+        border-radius: 7px;
+        background: item.selected ? Theme.primary : #000000b0;
+        border-width: item.selected ? 0px : 1.5px;
+        border-color: white;
+        if item.selected: Icon { d: Icons.check; tint: Theme.on-primary; x: 3px; y: 3px; width: 16px; height: 16px; }
+        TouchArea { mouse-cursor: pointer; clicked => { root.toggled(); } }
+    }
+}
+
 export component Pane inherits Rectangle {
     in property <string> title;
     in property <string> path;
     in property <[FileItem]> files;
     in property <string> footer;
     in property <string> message;
+    in-out property <bool> grid: false;
     callback toggled(int);
     callback opened(int);
     callback up();
@@ -366,6 +453,8 @@ export component Pane inherits Rectangle {
     in-out property <string> filter-text;
     callback filter(string);
     callback select-all();
+    property <int> cols: Math.max(1, Math.floor((root.width - 20px) / 118px));
+    property <length> cell: (root.width - 20px) / root.cols;
     background: Theme.surface;
     border-radius: 20px;
     border-width: 1px;
@@ -379,6 +468,7 @@ export component Pane inherits Rectangle {
             padding-right: 14px;
             spacing: 8px;
             Text { text: root.title; font-size: 16px; font-weight: 600; color: Theme.text; vertical-alignment: center; horizontal-stretch: 1; overflow: elide; }
+            Pill { icon-d: root.grid ? Icons.view-list : Icons.view-grid; label: ""; kind: 1; height: 32px; clicked => { root.grid = !root.grid; } }
             Pill { icon-d: Icons.left; label: "Subir"; kind: 1; height: 32px; min-width: 70px; clicked => { root.up(); } }
             Pill { icon-d: Icons.refresh; label: ""; kind: 1; height: 32px; clicked => { root.refresh(); } }
         }
@@ -403,9 +493,22 @@ export component Pane inherits Rectangle {
                 height: parent.height;
             }
         }
-        if root.message == "": ListView {
+        if root.message == "" && !root.grid: ListView {
             vertical-stretch: 1;
             for item[i] in root.files: FileRow {
+                item: item;
+                toggled => { root.toggled(i); }
+                opened => { root.opened(i); }
+            }
+        }
+        if root.message == "" && root.grid: ScrollView {
+            vertical-stretch: 1;
+            content-height: Math.ceil(root.files.length / root.cols) * root.cell + 8px;
+            for item[i] in root.files: FileTile {
+                x: Math.mod(i, root.cols) * root.cell + 10px;
+                y: Math.floor(i / root.cols) * root.cell + 4px;
+                width: root.cell - 8px;
+                height: root.cell - 8px;
                 item: item;
                 toggled => { root.toggled(i); }
                 opened => { root.opened(i); }
