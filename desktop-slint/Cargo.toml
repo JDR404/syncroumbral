@@ -1,6 +1,6 @@
 [package]
 name = "syncroumbral-slint"
-version = "0.6.0"
+version = "0.7.0"
 edition = "2021"
 description = "SyncroUmbral con interfaz nativa Slint (sin WebView): comparte el agente con la versión Tauri"
 publish = false

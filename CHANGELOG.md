@@ -2,6 +2,8 @@
 
 ## Sin publicar
 
+## 0.7.0 — 2026-11-20
+
 ### Interfaz del PC
 - **Archivos con vista previa**: las imágenes (y, del móvil, también los vídeos) muestran su miniatura en ambos paneles, que van apareciendo poco a poco. Botón para alternar entre **lista** y **cuadrícula** en cada panel; en cuadrícula el nombre completo (y tamaño y fecha) aparece al pasar el ratón, y la casilla de la esquina marca el elemento.
 - **Zona de arrastre** en el panel derecho (reemplaza el «Consejo»): se ilumina al arrastrar un archivo sobre la ventana y dice claramente dónde queda cada cosa (carpeta abierta del móvil, `Descargas\SyncroUmbral` en el PC y destino de «Traer al PC»).
