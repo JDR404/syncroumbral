@@ -179,7 +179,7 @@ Fuentes: [Microsoft Phone Link](https://support.microsoft.com/en-US/phone-link?f
 | Fase | Qué | Por qué |
 |---|---|---|
 | Hecho (0.4.0) | **Interfaz nativa con [Slint](https://slint.dev)** en lugar de WebView2 ([`desktop-slint/`](desktop-slint), ver [docs/SLINT.md](docs/SLINT.md)) | Un proceso y ~8 MB privados frente a 7 procesos y ~230 MB. Archivos, notificaciones con respuesta y controles, llamadas, apps del móvil en el PC, mensajería en una ventana aislada de Edge, vinculación por QR, bandeja e instancia única, probados con un Pixel 9 Pro. Licencia resuelta: el proyecto es GPL-3.0-or-later, compatible con Slint bajo GPLv3 |
-| En curso | Firma de código de Windows (SignPath Foundation, ver [docs/FIRMA.md](docs/FIRMA.md)); el actualizador ya va firmado | Evitar SmartScreen y Play Protect y poder repartir parches (S-11 de la auditoría) |
+| En espera | Firma de código de Windows (SignPath Foundation la rechazó por ahora por falta de visibilidad pública, ver [docs/FIRMA.md](docs/FIRMA.md)); el actualizador ya va firmado | Evitar SmartScreen y Play Protect y poder repartir parches (S-11 de la auditoría) |
 | Después | Bluetooth LE como segundo factor de proximidad | La presencia actual es "misma red", no "cerca" (S-03) |
 | Continuo | `cargo audit` y SBOM en la compilación, revisión externa | Antes de repartirla a terceros |
 
@@ -198,7 +198,7 @@ Página del proyecto: https://www.syncroapp.dev/umbral/ · Política de privacid
 
 **Estado actual:** los ejecutables de Windows todavía **no están firmados** (SmartScreen puede avisar); cada versión publica su `SHA256SUMS.txt` para verificarlos. Las versiones publicadas hasta ahora se compilaron en el equipo del autor.
 
-**Plan:** la solicitud del certificado gratuito de [SignPath Foundation](https://signpath.org/) se envió el 2026-11-19 y está pendiente de respuesta. Si lo aprueban, las versiones se compilarán en GitHub Actions a partir de este repositorio público (`.github/workflows/build-windows.yml`, ya preparado) y se firmarán con él; este apartado se actualizará entonces.
+**Plan:** la solicitud del certificado gratuito de [SignPath Foundation](https://signpath.org/) se envió el 2026-11-19 y el 2026-11-20 respondieron que por ahora no pueden aprobarla: el programa pide antes una visibilidad pública que el proyecto aún no tiene. Se volverá a solicitar cuando la tenga. Mientras tanto las versiones siguen sin firma de Windows y se verifican con su `SHA256SUMS.txt`. Si se consigue un certificado, las versiones se compilarán en GitHub Actions a partir de este repositorio público (`.github/workflows/build-windows.yml`, ya preparado) y este apartado se actualizará entonces.
 
 - **Autor y aprobador de las firmas:** el propietario del repositorio ([@juandr404](https://github.com/juandr404)).
 - **Privacidad:** el programa no envía datos a servidores del autor; solo habla con tu móvil por la red local y consulta las publicaciones de GitHub para buscar actualizaciones. Detalle en [docs/SEGURIDAD.md](docs/SEGURIDAD.md).
