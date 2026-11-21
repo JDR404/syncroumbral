@@ -13,8 +13,15 @@ Start-Sleep -Milliseconds 500
 New-Item -ItemType Directory -Force $dir | Out-Null
 Copy-Item $Exe $dest -Force
 
-# Inicio con Windows, en segundo plano (solo el icono de la bandeja).
-reg add "HKCU\Software\Microsoft\Windows\CurrentVersion\Run" /v SyncroUmbral /t REG_SZ /d "`"$dest`" --background" /f | Out-Null
+# Inicio con Windows, en segundo plano (solo el icono de la bandeja). Se escribe con Set-ItemProperty: pasar comillas a
+# reg.exe desde Windows PowerShell 5.1 las pierde y el valor quedaba sin comillas. Si el usuario lo desactivó, se respeta.
+$off = Join-Path $env:APPDATA "app.syncroapp.umbral\autostart-off"
+if (-not (Test-Path $off)) {
+    $run = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Run"
+    Set-ItemProperty -Path $run -Name SyncroUmbral -Value ('"{0}" --background' -f $dest) -Type String
+    $v = (Get-ItemProperty -Path $run -Name SyncroUmbral).SyncroUmbral
+    if ($v -ne ('"{0}" --background' -f $dest)) { Write-Warning "El inicio con Windows quedó mal escrito: $v" }
+}
 
 # Acceso directo en el menú Inicio.
 $lnk = Join-Path ([Environment]::GetFolderPath("Programs")) "SyncroUmbral.lnk"

@@ -28,6 +28,14 @@ fn startlog(msg: &str) {
 pub fn run() {
     let background = std::env::args().any(|a| a == "--background");
     startlog(if background { "inicio en segundo plano" } else { "inicio" });
+    // Contexto del lanzamiento (sin contraseñas ni argumentos): sirve para distinguir inicio automático de manual.
+    startlog(&format!(
+        "contexto: exe={} cwd={} usuario={} version={}",
+        std::env::current_exe().map(|p| p.display().to_string()).unwrap_or_default(),
+        std::env::current_dir().map(|p| p.display().to_string()).unwrap_or_default(),
+        std::env::var("USERNAME").unwrap_or_default(),
+        env!("CARGO_PKG_VERSION")
+    ));
     std::panic::set_hook(Box::new(|info| startlog(&format!("PÁNICO: {info}"))));
     let dir_arg = boot::data_dir_arg();
 
@@ -85,6 +93,8 @@ pub fn run() {
             let _ = crate::autostart::set_autostart(true);
             let _ = std::fs::write(&marker, "1");
         }
+        // Verifica (y repara si hace falta) la entrada de inicio en cada arranque, sin recrearla si el usuario la quitó.
+        startlog(&crate::autostart::repair_autostart());
     }
 
     let rt = tokio::runtime::Builder::new_multi_thread()

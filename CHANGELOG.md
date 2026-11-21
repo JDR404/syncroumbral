@@ -2,6 +2,12 @@
 
 ## Sin publicar
 
+### Arranque con Windows (causa raíz del fallo de inicio automático)
+- **Causa probable:** `instalar.ps1` escribía la entrada de inicio con `reg.exe` desde Windows PowerShell 5.1, que pierde las comillas incrustadas; el valor quedaba **sin comillas** (`C:\...\syncroumbral.exe --background`) y Windows no lanzaba la app al iniciar sesión (en la prueba del 2026-11-21 ejecutó las demás entradas de `Run` pero no esta, y `startup.log` no registró ningún intento). El instalador ahora usa `Set-ItemProperty` y comprueba lo escrito.
+- La app **verifica en cada arranque** su entrada de inicio (comillas, ruta existente) y la **repara** si está mal; nunca la recrea si el usuario la desactivó (se recuerda en `autostart-off`) ni toca una entrada que apunte a otra copia existente.
+- `startup.log` registra ahora el contexto del arranque (ejecutable, carpeta de trabajo, usuario, versión) y el estado de la entrada de inicio.
+- Pruebas unitarias de la lógica de reparación (`autostart.rs`). Pendiente de confirmar: reinicio real de Windows con la entrada corregida.
+
 ## 0.7.1 — 2026-11-20
 
 ### Arranque con Windows
