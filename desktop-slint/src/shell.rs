@@ -11,27 +11,58 @@ use std::sync::Arc;
 /// Puerto local que usa la copia en marcha para que una segunda orden de abrir solo muestre su ventana.
 const SINGLE_PORT: u16 = 47601;
 
+/// Registro de arranque (`startup.log`, máx. ~64 KB): si la app no llega a abrirse al iniciar Windows, aquí queda el motivo.
+fn startlog(msg: &str) {
+    let dir = std::env::var("APPDATA").map(std::path::PathBuf::from).unwrap_or_else(|_| std::env::temp_dir()).join("app.syncroapp.umbral");
+    let _ = std::fs::create_dir_all(&dir);
+    let file = dir.join("startup.log");
+    if std::fs::metadata(&file).map(|m| m.len() > 64 * 1024).unwrap_or(false) {
+        let _ = std::fs::remove_file(&file);
+    }
+    let now = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map_or(0, |d| d.as_secs());
+    if let Ok(mut f) = std::fs::OpenOptions::new().create(true).append(true).open(&file) {
+        let _ = writeln!(f, "{now} {msg}");
+    }
+}
+
 pub fn run() {
     let background = std::env::args().any(|a| a == "--background");
+    startlog(if background { "inicio en segundo plano" } else { "inicio" });
+    std::panic::set_hook(Box::new(|info| startlog(&format!("PÁNICO: {info}"))));
     let dir_arg = boot::data_dir_arg();
 
     // `--send RUTA` (menú del Explorador): la copia en marcha recibe el archivo; si no hay, se envía cuando esta arranque.
     let send_arg: Option<String> = std::env::args().skip_while(|a| a != "--send").nth(1);
 
     // Una sola copia: si ya hay otra, se le pide mostrar la ventana y esta sale.
+    // Si el puerto no se puede abrir y tampoco responde otra copia (al arrancar Windows otro programa puede tenerlo un momento),
+    // se reintenta unos segundos y, si sigue sin poderse, se arranca igualmente sin esa protección en vez de salir en silencio.
     let listener = if dir_arg.is_none() {
-        match TcpListener::bind(("127.0.0.1", SINGLE_PORT)) {
-            Ok(l) => Some(l),
-            Err(_) => {
-                if let Ok(mut s) = TcpStream::connect(("127.0.0.1", SINGLE_PORT)) {
-                    let _ = match &send_arg {
-                        Some(p) => s.write_all(format!("send\n{p}").as_bytes()),
-                        None => s.write_all(b"show"),
-                    };
+        let mut found = None;
+        for attempt in 0..6 {
+            match TcpListener::bind(("127.0.0.1", SINGLE_PORT)) {
+                Ok(l) => {
+                    found = Some(l);
+                    break;
                 }
-                return;
+                Err(e) => {
+                    if let Ok(mut s) = TcpStream::connect(("127.0.0.1", SINGLE_PORT)) {
+                        let _ = match &send_arg {
+                            Some(p) => s.write_all(format!("send\n{p}").as_bytes()),
+                            None => s.write_all(b"show"),
+                        };
+                        startlog("ya había otra copia en marcha: se le pidió mostrar la ventana");
+                        return;
+                    }
+                    startlog(&format!("el puerto {SINGLE_PORT} no está libre (intento {}): {e}", attempt + 1));
+                    std::thread::sleep(std::time::Duration::from_secs(1));
+                }
             }
         }
+        if found.is_none() {
+            startlog("se continúa sin comprobar copias duplicadas");
+        }
+        found
     } else {
         None
     };
@@ -62,17 +93,42 @@ pub fn run() {
         .build()
         .expect("no se pudo crear el motor asíncrono");
 
-    let (core, tls) = match boot::init(&dir) {
-        Ok(x) => x,
-        Err(e) => {
-            eprintln!("No se pudo iniciar SyncroUmbral: {e}");
-            return;
+    // Al iniciar sesión, el sistema (claves, disco) puede tardar unos segundos: se reintenta antes de rendirse.
+    let (core, tls) = {
+        let mut tries = 0;
+        loop {
+            match boot::init(&dir) {
+                Ok(x) => break x,
+                Err(e) => {
+                    tries += 1;
+                    startlog(&format!("no se pudo iniciar el agente (intento {tries}): {e}"));
+                    if tries >= 8 {
+                        return;
+                    }
+                    std::thread::sleep(std::time::Duration::from_secs(3));
+                }
+            }
         }
     };
     // El PC se anuncia en la red para que el móvil lo encuentre aunque cambie la IP.
     let _mdns = discovery::advertise(agent::PORT, &core.tls_fp);
 
-    let win = AppWindow::new().expect("no se pudo crear la ventana");
+    let win = {
+        let mut tries = 0;
+        loop {
+            match AppWindow::new() {
+                Ok(w) => break w,
+                Err(e) => {
+                    tries += 1;
+                    startlog(&format!("no se pudo crear la ventana (intento {tries}): {e}"));
+                    if tries >= 8 {
+                        return;
+                    }
+                    std::thread::sleep(std::time::Duration::from_secs(3));
+                }
+            }
+        }
+    };
     let ctx = Ctx::new(core.clone(), rt.handle().clone(), win.as_weak());
     let ui = SlintUi(ctx.clone());
     glue::wire(&win, &ctx);
@@ -217,7 +273,9 @@ pub fn run() {
     if !background {
         let _ = win.show();
     }
+    startlog("listo");
     let _ = slint::run_event_loop_until_quit();
+    startlog("cierre normal");
     ctx.edge_close_all();
 }
 

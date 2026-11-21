@@ -2,6 +2,12 @@
 
 ## Sin publicar
 
+## 0.7.1 — 2026-11-20
+
+### Arranque con Windows
+- El arranque ya no se rinde en silencio: si al iniciar sesión el puerto de «una sola copia» está ocupado, o el agente o la ventana tardan en poder crearse, **reintenta unos segundos** y, si aun así no puede comprobar copias duplicadas, arranca igualmente.
+- Nuevo registro de arranque `startup.log` (en `%APPDATA%pp.syncroapp.umbral`, máx. ~64 KB) con el motivo si la app no llega a abrirse. Corrige y diagnostica el caso de que, tras encender el PC, la app no apareciera en la bandeja.
+
 ## 0.7.0 — 2026-11-20
 
 ### Interfaz del PC
