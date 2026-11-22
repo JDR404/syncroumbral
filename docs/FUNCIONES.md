@@ -46,6 +46,7 @@ variar por modelo de teléfono y versión.
 | M12 | Actualizaciones firmadas | Hecho (0.6.0) | Clave privada fuera del repositorio |
 | M13 | Compilación en GitHub Actions y firma de Windows con SignPath Foundation | Rechazada por ahora (2026-11-20): falta visibilidad pública; se puede reintentar | Flujo `.github/workflows/build-windows.yml`, `.signpath/artifact-configuration.xml` y guía `docs/FIRMA.md`; hasta conseguir un certificado los `.exe` siguen sin firmar |
 | M14 | Vista previa de archivos, vista en cuadrícula, zona de arrastre con destinos y notificaciones en columnas | Hecho | Miniaturas de jpg/png del PC y de imágenes/vídeos del móvil (hasta 150 por carpeta); no hay vista previa de PDF ni documentos |
+| M15 | Instalador de Windows por usuario y tarjeta «Acerca de» | Hecho | NSIS sin administrador: Aplicaciones instaladas, menú Inicio, inicio con Windows, desinstalación limpia y silenciosa; la app muestra su versión, busca actualizaciones y enlaza web, código y privacidad |
 | M9 | Varios PC y varios móviles | Pendiente | El PC ya admite varios móviles vinculados; falta un cambio de móvil activo y que el móvil recuerde varios PC |
 
 ## Cómo se decide qué sigue

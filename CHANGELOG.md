@@ -2,6 +2,8 @@
 
 ## Sin publicar
 
+## 0.7.2 — 2026-11-22
+
 ### Instalador de Windows
 - Nuevo instalador NSIS **por usuario, sin administrador** (`instalador/syncroumbral.nsi`, se genera con `instalador/compilar.ps1` y en CI): instala en `%LOCALAPPDATA%\SyncroUmbral`, se registra en «Aplicaciones instaladas» con metadatos completos, crea el acceso directo del menú Inicio (escritorio opcional), activa el inicio con Windows respetando si el usuario lo desactivó, y admite instalación y desinstalación silenciosas (`/S`).
 - El desinstalador quita programa, accesos directos, inicio con Windows (solo si apunta a esta instalación) y el menú «Enviar al móvil», y pregunta antes de borrar los datos del usuario (en silencioso los conserva).
