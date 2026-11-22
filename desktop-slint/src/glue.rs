@@ -1909,6 +1909,23 @@ impl Ctx {
         });
     }
 
+    /// Búsqueda manual desde «Acerca de»: dice el resultado en la barra de estado.
+    pub fn check_updates_now(self: &Arc<Self>) {
+        let me = self.clone();
+        self.status("Buscando actualizaciones...");
+        self.rt.spawn(async move {
+            let m2 = me.clone();
+            match tokio::task::spawn_blocking(move || m2.check_update()).await.ok().flatten() {
+                Some((ver, _, _, _)) => {
+                    let v2 = ver.clone();
+                    me.ui(move |w| w.set_update_text(format!("Hay una versión nueva de SyncroUmbral: {v2}").into()));
+                    me.status(format!("Hay una versión nueva: {ver}. Pulsa «Actualizar ahora» arriba."));
+                }
+                None => me.status(format!("Tienes la última versión ({})", env!("CARGO_PKG_VERSION"))),
+            }
+        });
+    }
+
     /// (versión, url del exe, url de SHA256SUMS) de la última versión publicada si es más nueva que la instalada.
     fn check_update(&self) -> Option<(String, String, String, String)> {
         let r: Value = ureq::get("https://api.github.com/repos/juandr404/syncroumbral/releases?per_page=1")
@@ -2025,6 +2042,16 @@ pub fn wire_extras(win: &AppWindow, ctx: &Arc<Ctx>) {
     win.on_context_menu(move |on| c.context_menu(on));
     let c = ctx.clone();
     win.on_do_update(move || c.do_update());
+    // Acerca de: versión, búsqueda manual de actualizaciones y enlaces (solo a direcciones propias del proyecto).
+    win.set_app_version(env!("CARGO_PKG_VERSION").into());
+    let c = ctx.clone();
+    win.on_check_updates(move || c.check_updates_now());
+    win.on_open_link(|url| {
+        const OK: [&str; 2] = ["https://github.com/juandr404/syncroumbral", "https://www.syncroapp.dev/umbral"];
+        if OK.iter().any(|p| url.starts_with(p)) {
+            let _ = std::process::Command::new("explorer").arg(url.as_str()).spawn();
+        }
+    });
     ctx.apply_settings();
 }
 

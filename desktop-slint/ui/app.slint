@@ -173,6 +173,7 @@ export component AppWindow inherits Window {
     in-out property <string> mute-words;
     in-out property <bool> photo-backup: false;
     in property <string> update-text;
+    in property <string> app-version;
 
     callback unlock(string);
     callback lock-now();
@@ -227,6 +228,8 @@ export component AppWindow inherits Window {
     callback toggled-backup(bool);
     callback context-menu(bool);
     callback do-update();
+    callback check-updates();
+    callback open-link(string);
 
     // ---- medidas derivadas: el contenido se adapta al ancho (y en pantalla grande aparece el panel derecho)
     property <bool> narrow: root.side-collapsed || root.width < 1000px;
@@ -930,6 +933,29 @@ export component AppWindow inherits Window {
                                 alignment: start;
                                 Pill { label: "Instalar adb"; kind: 1; clicked => { root.install-tool("adb"); } }
                                 Pill { label: "Instalar scrcpy"; kind: 1; clicked => { root.install-tool("scrcpy"); } }
+                            }
+                        }
+                        Card {
+                            row: root.wide ? 3 : 6; col: 0;
+                            title: "Acerca de SyncroUmbral";
+                            subtitle: "Software libre (GPL-3.0 o posterior). Solo usa su red local; las actualizaciones vienen firmadas desde GitHub.";
+                            HorizontalLayout {
+                                spacing: 10px;
+                                Icon { d: Icons.info; tint: Theme.primary; width: 22px; height: 22px; y: 2px; }
+                                Text { text: "Versión " + root.app-version; color: Theme.text; font-size: 15px; font-weight: 600; vertical-alignment: center; }
+                            }
+                            HorizontalLayout {
+                                spacing: 10px;
+                                alignment: start;
+                                Pill { icon-d: Icons.refresh; label: "Buscar actualizaciones"; kind: 1; clicked => { root.check-updates(); } }
+                                Pill { icon-d: Icons.open-in-new; label: "Novedades"; kind: 1; clicked => { root.open-link("https://github.com/juandr404/syncroumbral/releases"); } }
+                            }
+                            HorizontalLayout {
+                                spacing: 10px;
+                                alignment: start;
+                                Pill { icon-d: Icons.open-in-new; label: "Página web"; kind: 1; clicked => { root.open-link("https://www.syncroapp.dev/umbral/"); } }
+                                Pill { icon-d: Icons.open-in-new; label: "Código en GitHub"; kind: 1; clicked => { root.open-link("https://github.com/juandr404/syncroumbral"); } }
+                                Pill { icon-d: Icons.open-in-new; label: "Privacidad"; kind: 1; clicked => { root.open-link("https://www.syncroapp.dev/umbral/privacidad"); } }
                             }
                         }
                     }

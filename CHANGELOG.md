@@ -6,6 +6,7 @@
 - Nuevo instalador NSIS **por usuario, sin administrador** (`instalador/syncroumbral.nsi`, se genera con `instalador/compilar.ps1` y en CI): instala en `%LOCALAPPDATA%\SyncroUmbral`, se registra en «Aplicaciones instaladas» con metadatos completos, crea el acceso directo del menú Inicio (escritorio opcional), activa el inicio con Windows respetando si el usuario lo desactivó, y admite instalación y desinstalación silenciosas (`/S`).
 - El desinstalador quita programa, accesos directos, inicio con Windows (solo si apunta a esta instalación) y el menú «Enviar al móvil», y pregunta antes de borrar los datos del usuario (en silencioso los conserva).
 - La actualización automática actualiza también la versión mostrada en «Aplicaciones instaladas».
+- Nueva tarjeta **Acerca de** en Móviles y ajustes: versión instalada, «Buscar actualizaciones» (dice si ya tienes la última) y enlaces a novedades, web, código en GitHub y privacidad.
 - Probado de forma automática (instalación y desinstalación silenciosas, inicio desactivado respetado); pendiente la prueba con doble clic y reinicio en un Windows real.
 
 ### Arranque con Windows (causa raíz del fallo de inicio automático)
