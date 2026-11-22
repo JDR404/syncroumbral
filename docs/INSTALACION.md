@@ -34,7 +34,12 @@ La red WiFi no puede tener "aislamiento de clientes" (las redes de invitados sue
 
 ## 1. Instalar en el PC
 
-1. Copia el instalador (o, para la interfaz nativa, `desktop-slint/target/release/syncroumbral.exe` con `instalar.ps1`) al otro PC y ejecútalo. Se instala solo para tu usuario, sin pedir administrador. Ejecuta `instalar.ps1` desde una PowerShell normal, no desde la terminal integrada de una app empaquetada (MSIX): ahí Windows virtualiza `AppData` y el registro y el inicio automático no funciona (ver `docs/SLINT.md`).
+1. Ejecuta `SyncroUmbral-x.y.z-setup.exe` (de Releases) con doble clic. Se instala solo para tu usuario, sin pedir administrador, en `%LOCALAPPDATA%\SyncroUmbral`, y:
+   - aparece en Configuración > Aplicaciones > Aplicaciones instaladas (nombre, versión, editor, icono, tamaño y desinstalación);
+   - crea el acceso directo en el menú Inicio (y en el escritorio si marcas la casilla al final);
+   - activa el inicio con Windows en segundo plano, salvo que lo hubieras desactivado en la app.
+
+   Instalación desatendida: `SyncroUmbral-x.y.z-setup.exe /S` (y `/D=ruta` para otra carpeta, siempre como último argumento). Reinstalar encima actualiza sin perder datos. Para desarrollo también existe `desktop-slint/instalar.ps1`; ejecútalo desde una PowerShell normal, no desde la terminal integrada de una app empaquetada (MSIX), porque ahí Windows virtualiza `AppData` y el registro y el inicio automático no funciona (ver `docs/SLINT.md`). Lo mismo vale para el instalador: ábrelo desde el Explorador.
 2. Windows SmartScreen avisará porque el instalador no está firmado: pulsa "Más información" y "Ejecutar de todas formas".
 3. Abre SyncroUmbral y crea la **clave de respaldo** (mínimo 6 caracteres). Sirve para abrir la aplicación cuando el móvil no está.
 
@@ -231,7 +236,7 @@ actualizar la app instalada (habría que desinstalar y volver a vincular). El AP
 
 ## Desinstalar
 
-- PC: "Aplicaciones instaladas" de Windows, SyncroUmbral. Para borrar también las claves, elimina `%APPDATA%\app.syncroapp.umbral`.
+- PC: Configuración > Aplicaciones > Aplicaciones instaladas > SyncroUmbral > Desinstalar. Cierra la app y quita el programa, el acceso directo, el inicio con Windows y el menú «Enviar al móvil»; al final pregunta si borrar también tus datos (`%APPDATA%\app.syncroapp.umbral`: móviles vinculados, claves y ajustes). Desatendido: `"%LOCALAPPDATA%\SyncroUmbral\uninstall.exe" /S` (conserva los datos).
 - Móvil: en la app, "Desvincular" (borra la clave) y luego desinstala.
 
 ## Si algo falla

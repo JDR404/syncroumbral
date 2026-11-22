@@ -2,6 +2,12 @@
 
 ## Sin publicar
 
+### Instalador de Windows
+- Nuevo instalador NSIS **por usuario, sin administrador** (`instalador/syncroumbral.nsi`, se genera con `instalador/compilar.ps1` y en CI): instala en `%LOCALAPPDATA%\SyncroUmbral`, se registra en «Aplicaciones instaladas» con metadatos completos, crea el acceso directo del menú Inicio (escritorio opcional), activa el inicio con Windows respetando si el usuario lo desactivó, y admite instalación y desinstalación silenciosas (`/S`).
+- El desinstalador quita programa, accesos directos, inicio con Windows (solo si apunta a esta instalación) y el menú «Enviar al móvil», y pregunta antes de borrar los datos del usuario (en silencioso los conserva).
+- La actualización automática actualiza también la versión mostrada en «Aplicaciones instaladas».
+- Probado de forma automática (instalación y desinstalación silenciosas, inicio desactivado respetado); pendiente la prueba con doble clic y reinicio en un Windows real.
+
 ### Arranque con Windows (causa raíz del fallo de inicio automático)
 - `instalar.ps1` escribía la entrada de inicio con `reg.exe` desde Windows PowerShell 5.1, que pierde las comillas incrustadas (el valor quedaba **sin comillas** y, si la ruta tenía espacios, ni se escribía). Ahora usa `Set-ItemProperty` y comprueba lo escrito. Defecto real, pero **no era la causa** del fallo observado en el equipo de desarrollo.
 - Causa del fallo en el equipo de desarrollo (verificada el 2026-11-21 con cinco reinicios): las instalaciones se hacían desde una terminal hija de la app de escritorio de Claude, que es un paquete MSIX. Windows **virtualiza** lo que esos procesos escriben en `%LOCALAPPDATA%`, `%APPDATA%` y `HKCU` (va a `%LOCALAPPDATA%\Packages\Claude_*\LocalCache` y `SystemAppData\Helium\User.dat`). Explorer, que lanza el inicio de sesión, no ve ni el ejecutable ni la entrada `Run`; ninguna entrada de prueba creada así arrancó, mientras que las de otras apps sí. **Instalar siempre desde una terminal normal o ejecutando el `.exe` publicado.** Validado: tras instalar desde una PowerShell abierta desde el menú Inicio y reiniciar, la app arrancó sola en la bandeja.

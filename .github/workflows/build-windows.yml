@@ -44,6 +44,19 @@ jobs:
           name: syncroumbral-windows-x64-sin-firmar
           path: desktop-slint/target/release/syncroumbral.exe
           if-no-files-found: error
+      # Instalador NSIS por usuario (instalador/syncroumbral.nsi). NSIS viene en las imágenes windows-latest;
+      # si faltara, se instala con choco.
+      - name: Instalador
+        shell: pwsh
+        run: |
+          if (-not (Test-Path "${env:ProgramFiles(x86)}\NSIS\makensis.exe") -and -not (Get-Command makensis -ErrorAction SilentlyContinue)) { choco install nsis -y --no-progress }
+          powershell -ExecutionPolicy Bypass -File instalador/compilar.ps1
+          Get-ChildItem instalador/*-setup.exe | ForEach-Object { "$($_.Name) SHA-256: $((Get-FileHash $_ -Algorithm SHA256).Hash.ToLower())" } | Tee-Object -FilePath $env:GITHUB_STEP_SUMMARY -Append
+      - uses: actions/upload-artifact@v4
+        with:
+          name: syncroumbral-instalador-sin-firmar
+          path: instalador/*-setup.exe
+          if-no-files-found: error
 
   firmar:
     needs: build

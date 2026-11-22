@@ -12,3 +12,6 @@ keystore.properties
 *.keystore
 
 docs/brand/generated/
+
+# Instalador generado
+instalador/*.exe

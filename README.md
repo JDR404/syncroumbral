@@ -99,7 +99,7 @@ CHANGELOG.md              Qué cambió en cada versión
 
 Guía completa (firewall, Play Protect, instalación por `adb`): [docs/INSTALACION.md](docs/INSTALACION.md). Resumen:
 
-1. Descarga de la página de [**Releases**](https://github.com/juandr404/syncroumbral/releases/latest) el `.exe` (PC) y el `.apk` (móvil). En el PC basta ejecutar el `.exe` (no hay que instalar nada; para dejarlo con inicio automático y acceso directo, usa `desktop-slint/instalar.ps1`). Crea la **clave de respaldo** al abrirlo.
+1. Descarga de la página de [**Releases**](https://github.com/juandr404/syncroumbral/releases/latest) el instalador `SyncroUmbral-x.y.z-setup.exe` (PC) y el `.apk` (móvil). El instalador es por usuario y no pide administrador: deja SyncroUmbral en «Aplicaciones instaladas», en el menú Inicio y arrancando con Windows (también existe el `.exe` suelto, sin instalar). Crea la **clave de respaldo** al abrirlo.
 2. Instala `app-release.apk` en el móvil y concede: archivos, acceso a notificaciones, avisos, y (opcional) contestar llamadas y
    mostrar sobre otras apps. La pestaña **Permisos** de la app muestra qué falta.
 3. En el PC: *Móviles y ajustes* → "Mostrar QR de vinculación". En el móvil: "Escanear QR del PC" y confirma que la huella coincide.

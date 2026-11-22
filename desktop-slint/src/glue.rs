@@ -1939,7 +1939,7 @@ impl Ctx {
         self.status("Descargando la actualización...");
         self.rt.spawn_blocking(move || {
             let r = (|| -> Result<(), String> {
-                let (_, exe_url, sums_url, sig_url) = me.check_update().ok_or("Ya tienes la última versión (o la publicación no está firmada)")?;
+                let (ver, exe_url, sums_url, sig_url) = me.check_update().ok_or("Ya tienes la última versión (o la publicación no está firmada)")?;
                 let get = |u: &str| -> Result<Vec<u8>, String> {
                     let mut v = Vec::new();
                     let resp = ureq::get(u).set("User-Agent", "SyncroUmbral").timeout(Duration::from_secs(300)).call().map_err(|e| e.to_string())?;
@@ -1970,6 +1970,11 @@ impl Ctx {
                 if let Err(e) = std::fs::write(&exe, &bin) {
                     let _ = std::fs::rename(&old, &exe);
                     return Err(e.to_string());
+                }
+                // Si se instaló con el instalador, se actualiza la versión que muestra Windows en «Aplicaciones instaladas».
+                let key = r"HKCU\Software\Microsoft\Windows\CurrentVersion\Uninstall\SyncroUmbral";
+                if crate::autostart::reg_run(&["query", key, "/v", "DisplayVersion"]) {
+                    crate::autostart::reg_run(&["add", key, "/v", "DisplayVersion", "/t", "REG_SZ", "/d", &ver, "/f"]);
                 }
                 std::process::Command::new(&exe).arg("--background").spawn().map_err(|e| e.to_string())?;
                 Ok(())
