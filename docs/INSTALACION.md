@@ -34,7 +34,7 @@ La red WiFi no puede tener "aislamiento de clientes" (las redes de invitados sue
 
 ## 1. Instalar en el PC
 
-1. Copia el instalador (o, para la interfaz nativa, `desktop-slint/target/release/syncroumbral.exe` con `instalar.ps1`) al otro PC y ejecútalo. Se instala solo para tu usuario, sin pedir administrador.
+1. Copia el instalador (o, para la interfaz nativa, `desktop-slint/target/release/syncroumbral.exe` con `instalar.ps1`) al otro PC y ejecútalo. Se instala solo para tu usuario, sin pedir administrador. Ejecuta `instalar.ps1` desde una PowerShell normal, no desde la terminal integrada de una app empaquetada (MSIX): ahí Windows virtualiza `AppData` y el registro y el inicio automático no funciona (ver `docs/SLINT.md`).
 2. Windows SmartScreen avisará porque el instalador no está firmado: pulsa "Más información" y "Ejecutar de todas formas".
 3. Abre SyncroUmbral y crea la **clave de respaldo** (mínimo 6 caracteres). Sirve para abrir la aplicación cuando el móvil no está.
 

@@ -59,6 +59,8 @@ powershell -ExecutionPolicy Bypass -File instalar.ps1
 
 `instalar.ps1` sustituye a `syncroumbral.exe` en `%LOCALAPPDATA%\SyncroUmbral`, activa el inicio con Windows, crea el acceso directo y lo abre.
 
+> **Importante:** ejecútalo desde una PowerShell normal (menú Inicio). Si se lanza desde una terminal integrada en una app empaquetada (MSIX), como la app de escritorio de Claude, Windows virtualiza lo escrito en `AppData` y `HKCU`: el ejecutable y la entrada de inicio solo existen dentro de ese paquete y la app **no arranca con Windows**. Para comprobarlo: `reg query HKCU\Software\Microsoft\Windows\CurrentVersion\Run /v SyncroUmbral` desde una terminal normal.
+
 ## Probar
 
 ```
