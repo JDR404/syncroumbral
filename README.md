@@ -186,7 +186,7 @@ Fuentes: [Microsoft Phone Link](https://support.microsoft.com/en-US/phone-link?f
 ## Documentación
 
 [Protocolo](docs/PROTOCOLO.md) · [Arquitectura](docs/ARQUITECTURA.md) · [Interfaz Slint](docs/SLINT.md) · [Instalación](docs/INSTALACION.md) · [Seguridad](docs/SEGURIDAD.md) ·
-[Distribución](docs/DISTRIBUCION.md) · [Auditoría de seguridad](docs/AUDITORIA_SEGURIDAD.md) · [Cambios](CHANGELOG.md)
+[Distribución](docs/DISTRIBUCION.md) · [Auditoría de seguridad](docs/AUDITORIA_SEGURIDAD.md) · [Auditoría integral y roadmap](docs/auditoria/README.md) · [Cambios](CHANGELOG.md)
 
 ## Licencia
 
