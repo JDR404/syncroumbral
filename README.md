@@ -6,7 +6,7 @@
 > está abierta. Si se va, la aplicación se bloquea y oculta todo lo que había en pantalla. Sin móvil, solo se abre con una clave de respaldo.
 > Además trae al PC tus notificaciones, tus archivos y tus apps.
 
-Estado: **beta 0.7.2** · PC con interfaz nativa Slint (la versión Tauri de `desktop/` queda como referencia y ya no se publica) · Parte del portafolio de **SyncroApp** · Desarrollador: SyncroApp, `syncroapp.dev@gmail.com`
+Estado: **beta 0.7.3** · PC con interfaz nativa Slint (la versión Tauri de `desktop/` queda como referencia y ya no se publica) · Parte del portafolio de **SyncroApp** · Desarrollador: SyncroApp, `syncroapp.dev@gmail.com`
 (nombre anterior del proyecto: Umbral) · Seguridad: [docs/AUDITORIA_SEGURIDAD.md](docs/AUDITORIA_SEGURIDAD.md)
 
 Novedades de cada versión: [CHANGELOG.md](CHANGELOG.md).

@@ -2,6 +2,8 @@
 
 ## Sin publicar
 
+## 0.7.3 — 2026-11-22
+
 ### Actualizaciones
 - Tras actualizar, la app se abre con la ventana visible y una franja **«SyncroUmbral se actualizó a la versión X (antes Y)»** con botón «Ver novedades» (notas de esa versión en GitHub). Antes se reabría oculta en la bandeja sin decir nada.
 - La versión nueva espera a que la anterior libere el puerto de instancia única en vez de pedirle que se muestre (evita que la actualización termine sin ninguna copia en marcha).
