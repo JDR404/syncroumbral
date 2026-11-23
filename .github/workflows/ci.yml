@@ -41,14 +41,17 @@ jobs:
         run: |
           $setup = (Get-ChildItem instalador/*-setup.exe | Select-Object -First 1).FullName
           $dir = Join-Path $env:RUNNER_TEMP "umbral-instalacion"
-          Start-Process $setup -ArgumentList '/S', "/D=$dir" -Wait
+          # No se usa -Wait: el instalador silencioso abre la app al terminar y -Wait esperaría también a esa app.
+          $inst = Start-Process $setup -ArgumentList '/S', "/D=$dir" -PassThru
+          if (-not $inst.WaitForExit(120000)) { throw "El instalador no terminó en 2 minutos" }
           if (-not (Test-Path "$dir\syncroumbral.exe")) { throw "El instalador no copió el programa" }
           $key = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\SyncroUmbral'
           if (-not (Test-Path $key)) { throw "No se registró en Aplicaciones instaladas" }
           $run = (Get-ItemProperty 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Run').SyncroUmbral
           if ($run -ne ('"{0}\syncroumbral.exe" --background' -f $dir)) { throw "Entrada de inicio incorrecta: $run" }
-          Start-Process "$dir\uninstall.exe" -ArgumentList '/S' -Wait
-          Start-Sleep -Seconds 5
+          $un = Start-Process "$dir\uninstall.exe" -ArgumentList '/S' -PassThru
+          $null = $un.WaitForExit(120000)
+          Start-Sleep -Seconds 10   # el desinstalador se copia a %TEMP% y sigue trabajando allí
           if (Test-Path "$dir\syncroumbral.exe") { throw "La desinstalación no quitó el programa" }
           if (Test-Path $key) { throw "La desinstalación no quitó el registro" }
           if ((Get-ItemProperty 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Run' -ErrorAction SilentlyContinue).SyncroUmbral) { throw "Quedó la entrada de inicio" }
