@@ -2049,6 +2049,13 @@ pub fn wire_extras(win: &AppWindow, ctx: &Arc<Ctx>) {
     win.on_do_update(move || c.do_update());
     // Acerca de: versión, búsqueda manual de actualizaciones y enlaces (solo a direcciones propias del proyecto).
     win.set_app_version(env!("CARGO_PKG_VERSION").into());
+    // Novedades de la versión instalada: salen del CHANGELOG incluido en el programa (funcionan sin conexión).
+    let w = win.as_weak();
+    win.on_show_whats_new(move || {
+        if let Some(w) = w.upgrade() {
+            w.set_whats_new(whats_new_text(env!("CARGO_PKG_VERSION")).into());
+        }
+    });
     let c = ctx.clone();
     win.on_check_updates(move || c.check_updates_now());
     win.on_open_link(|url| {
@@ -2453,4 +2460,66 @@ pub fn wire_files_extra(win: &AppWindow, ctx: &Arc<Ctx>) {
     win.on_add_service(move |n, u| c.add_service(n.to_string(), u.to_string()));
     let c = ctx.clone();
     win.on_remove_service(move |i| c.remove_service(i as usize));
+}
+
+
+/// Texto de «Novedades» de una versión: su sección del CHANGELOG, sin marcas de Markdown.
+pub fn whats_new_text(version: &str) -> String {
+    const CHANGELOG: &str = include_str!("../../CHANGELOG.md");
+    let head = format!("## {version} ");
+    let mut out = Vec::new();
+    let mut inside = false;
+    for line in CHANGELOG.lines() {
+        if line.starts_with("## ") {
+            if inside {
+                break;
+            }
+            inside = line.starts_with(&head);
+            continue;
+        }
+        if !inside {
+            continue;
+        }
+        let t = line.trim_end();
+        // Solo lo que le importa al usuario: los «Detalles técnicos» se quedan en el CHANGELOG.
+        if t.starts_with("### Detalles") {
+            break;
+        }
+        if let Some(h) = t.strip_prefix("### ") {
+            if h.trim() != "Qué ha cambiado" {
+                out.push(format!("
+{}", h.to_uppercase()));
+            }
+        } else if let Some(b) = t.strip_prefix("- ") {
+            out.push(format!("•  {b}"));
+        } else if !t.is_empty() {
+            out.push(t.to_string());
+        }
+    }
+    let text = out.join("
+").replace("**", "").replace('`', "");
+    if text.trim().is_empty() {
+        format!("Esta versión ({version}) no tiene notas en el programa. Consulta «Todas las versiones» para ver las novedades en GitHub.")
+    } else {
+        text.trim().to_string()
+    }
+}
+
+#[cfg(test)]
+mod novedades_tests {
+    use super::whats_new_text;
+
+    #[test]
+    fn extrae_la_seccion_de_la_version_sin_marcas() {
+        let t = whats_new_text(env!("CARGO_PKG_VERSION"));
+        assert!(!t.contains("**") && !t.contains('`'), "sin Markdown: {t}");
+        assert!(!t.contains("## "), "solo esa versión: {t}");
+        assert!(t.contains('•'), "con viñetas: {t}");
+        assert!(!t.contains("whats_new_text") && !t.to_lowercase().contains("detalles técnicos"), "sin detalles técnicos: {t}");
+    }
+
+    #[test]
+    fn version_sin_notas_da_un_mensaje_claro() {
+        assert!(whats_new_text("9.9.9").contains("no tiene notas"));
+    }
 }

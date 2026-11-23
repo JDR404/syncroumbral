@@ -175,6 +175,8 @@ export component AppWindow inherits Window {
     in property <string> update-text;
     in property <string> app-version;
     in-out property <string> updated-text;
+    in-out property <string> whats-new;
+    callback show-whats-new();
 
     callback unlock(string);
     callback lock-now();
@@ -399,7 +401,7 @@ export component AppWindow inherits Window {
                         spacing: 12px;
                         Icon { d: Icons.check; tint: Theme.ok; width: 20px; height: 20px; y: 12px; }
                         Text { text: root.updated-text; color: Theme.on-container; vertical-alignment: center; overflow: elide; horizontal-stretch: 1; }
-                        Pill { icon-d: Icons.open-in-new; label: "Ver novedades"; height: 32px; y: 6px; clicked => { root.open-link("https://github.com/juandr404/syncroumbral/releases/tag/v" + root.app-version); } }
+                        Pill { icon-d: Icons.open-in-new; label: "Ver novedades"; height: 32px; y: 6px; clicked => { root.show-whats-new(); } }
                         Pill { icon-d: Icons.close; label: ""; kind: 1; height: 32px; y: 6px; clicked => { root.updated-text = ""; } }
                     }
                 }
@@ -965,7 +967,8 @@ export component AppWindow inherits Window {
                                 spacing: 10px;
                                 alignment: start;
                                 Pill { icon-d: Icons.refresh; label: "Buscar actualizaciones"; kind: 1; clicked => { root.check-updates(); } }
-                                Pill { icon-d: Icons.open-in-new; label: "Novedades"; kind: 1; clicked => { root.open-link("https://github.com/juandr404/syncroumbral/releases"); } }
+                                Pill { icon-d: Icons.info; label: "Novedades de esta versión"; kind: 1; clicked => { root.show-whats-new(); } }
+                                Pill { icon-d: Icons.open-in-new; label: "Todas las versiones"; kind: 1; clicked => { root.open-link("https://github.com/juandr404/syncroumbral/releases"); } }
                             }
                             HorizontalLayout {
                                 spacing: 10px;
@@ -1061,6 +1064,48 @@ export component AppWindow inherits Window {
                             }
                         }
                     }
+                }
+            }
+        }
+    }
+
+    // Panel de novedades: se abre solo tras actualizar y desde Acerca de.
+    if root.whats-new != "": Rectangle {
+        x: 0px;
+        y: 0px;
+        width: parent.width;
+        height: parent.height;
+        background: #000000b0;
+        TouchArea { clicked => { root.whats-new = ""; } }
+        Rectangle {
+            width: min(720px, parent.width - 48px);
+            height: min(560px, parent.height - 48px);
+            border-radius: 20px;
+            background: Theme.surface;
+            border-width: 1px;
+            border-color: Theme.border;
+            TouchArea { }
+            VerticalLayout {
+                padding: 24px;
+                spacing: 14px;
+                HorizontalLayout {
+                    spacing: 10px;
+                    Icon { d: Icons.check; tint: Theme.ok; width: 24px; height: 24px; y: 2px; }
+                    Text { text: "Novedades de la versión " + root.app-version; color: Theme.text; font-size: 20px; font-weight: 600; vertical-alignment: center; horizontal-stretch: 1; }
+                }
+                Rectangle { height: 1px; background: Theme.border; }
+                ScrollView {
+                    vertical-stretch: 1;
+                    VerticalLayout {
+                        alignment: start;
+                        Text { text: root.whats-new; color: Theme.text; font-size: 14px; wrap: word-wrap; }
+                    }
+                }
+                HorizontalLayout {
+                    spacing: 10px;
+                    alignment: end;
+                    Pill { icon-d: Icons.open-in-new; label: "Todas las versiones"; kind: 1; clicked => { root.open-link("https://github.com/juandr404/syncroumbral/releases"); } }
+                    Pill { icon-d: Icons.check; label: "Entendido"; clicked => { root.whats-new = ""; root.updated-text = ""; } }
                 }
             }
         }

@@ -312,10 +312,13 @@ pub fn run() {
             }
         }
     }
+    // Tras actualizar siempre se muestra la ventana (aunque venga con --background de un actualizador antiguo) y se abre
+    // el panel de novedades: el usuario tiene que ver qué cambió.
     if let Some(v) = &updated_from {
         win.set_updated_text(format!("SyncroUmbral se actualizó a la versión {} (antes {v}).", env!("CARGO_PKG_VERSION")).into());
+        win.set_whats_new(crate::glue::whats_new_text(env!("CARGO_PKG_VERSION")).into());
     }
-    if !background {
+    if !background || updated_from.is_some() {
         let _ = win.show();
     }
     startlog("listo");

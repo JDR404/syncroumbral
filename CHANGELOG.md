@@ -2,14 +2,31 @@
 
 ## Sin publicar
 
+## 0.7.4 — 2026-11-22
+
+### Qué ha cambiado
+- **Panel de novedades dentro de la aplicación**: después de actualizar, SyncroUmbral se abre siempre con la ventana visible y muestra qué trae la versión nueva. Antes, con el actualizador anterior, se quedaba oculta en la bandeja sin decir nada.
+- En Móviles y ajustes > Acerca de, el botón **«Novedades de esta versión»** abre ese mismo panel cuando quieras, sin conexión a Internet. «Todas las versiones» abre la lista completa en GitHub.
+- El panel se cierra con «Entendido», con la X o pulsando fuera.
+
+### Detalles técnicos
+- Las notas salen de este `CHANGELOG.md`, incluido en el programa (`whats_new_text` en `glue.rs`, con pruebas).
+- Si se detecta un cambio de versión al arrancar (por el archivo `last-version` o por `--updated-from`), la ventana se muestra aunque se haya lanzado con `--background`.
+
 ## 0.7.3 — 2026-11-22
 
-### Actualizaciones
+### Qué ha cambiado
+- Al actualizar, SyncroUmbral te avisa: «SyncroUmbral se actualizó a la versión X», con un botón para ver las novedades.
+- La actualización ya no puede dejar la aplicación cerrada si la versión vieja y la nueva chocan al arrancar.
+- Las pruebas automáticas de la comunicación con el móvil vuelven a ejecutarse: más seguridad de que vincular, bloquear y enviar archivos siguen funcionando bien en cada versión.
+
+### Detalles técnicos
+#### Actualizaciones
 - Tras actualizar, la app se abre con la ventana visible y una franja **«SyncroUmbral se actualizó a la versión X (antes Y)»** con botón «Ver novedades» (notas de esa versión en GitHub). Antes se reabría oculta en la bandeja sin decir nada.
 - La versión nueva espera a que la anterior libere el puerto de instancia única en vez de pedirle que se muestre (evita que la actualización termine sin ninguna copia en marcha).
 - La app recuerda la última versión ejecutada (`last-version`): el aviso aparece también si se actualiza con el instalador o desde una versión antigua del actualizador.
 
-### Pruebas
+#### Pruebas
 - Las 26 pruebas de punta a punta del servidor y del protocolo (vinculación, código de un solo uso, límites antes de autenticar, bloqueo tras fallos, archivos compartidos, llamadas...) vuelven a ejecutarse: ahora usan una interfaz vacía en lugar del entorno de Tauri y corren con la versión Slint y en la CI (54 pruebas en total).
 - Corregido: en las compilaciones de prueba en modo `--release` la carpeta de recepción de pruebas se ignoraba y la prueba escribía en `Descargas\SyncroUmbral`.
 

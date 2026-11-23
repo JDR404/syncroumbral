@@ -13,8 +13,8 @@ android {
         applicationId = "app.syncroapp.umbral"
         minSdk = 26
         targetSdk = 35
-        versionCode = 9
-        versionName = "0.7.3"
+        versionCode = 10
+        versionName = "0.7.4"
     }
 
     // La clave de firma NO está en el repositorio: cada quien genera la suya (ver docs/INSTALACION.md) y la describe en
