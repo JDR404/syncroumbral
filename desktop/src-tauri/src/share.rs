@@ -31,8 +31,8 @@ pub struct Incoming {
 
 /// Carpeta donde se guardan los archivos recibidos.
 pub fn inbox_dir() -> PathBuf {
-    // Solo en compilaciones de depuración (pruebas): en la versión instalada el entorno no puede redirigir lo recibido.
-    #[cfg(debug_assertions)]
+    // Solo en compilaciones de depuración y de pruebas: en la versión instalada el entorno no puede redirigir lo recibido.
+    #[cfg(any(debug_assertions, test))]
     if let Some(p) = std::env::var_os("UMBRAL_INBOX_DIR") {
         return PathBuf::from(p);
     }

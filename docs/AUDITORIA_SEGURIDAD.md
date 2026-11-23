@@ -24,7 +24,7 @@ Tras la auditoría se aplicaron y **probaron** (pruebas automáticas, 37 en tota
 | S-08 | Corregido | Mensajes de 16 KiB como máximo antes de autenticar, 16 handshakes simultáneos en total y 3 por origen, plazo de 12 s, bloqueo de 60 s tras 8 fallos. Comprobado en vivo: 200 KB y 10 MB cortados, 40 conexiones inactivas reducidas a 3, bloqueo tras 8 códigos falsos. |
 | S-09 | Corregido | APK de producción no depurable (`run-as` falla), R8, firmado con clave propia, 618 KB; los intents de prueba solo existen en depuración. Instalado y probado en el Pixel. |
 | S-10 | Parcial | Se añadió el aviso de servicios de accesibilidad activos. El resto (notificación persistente, "Desconectar todo") sigue pendiente. |
-| S-11 | Pendiente | Requiere un certificado de firma de código y un actualizador. |
+| S-11 | Parcial | Actualizador hecho (0.4.0) con firma ECDSA propia de la lista de huellas (0.6.0) e instalador (0.7.2). Falta la firma de código de Windows (SignPath Foundation no la aprobó por ahora). |
 | S-12 | Corregido | mDNS ya no publica el nombre del equipo; la dirección descubierta se guarda solo tras una sesión autenticada. |
 | S-13 | Sin cambios | Aviso `crypto-bigint` no explotable; añadir `cargo audit` a la compilación sigue pendiente. |
 | S-14 | Corregido | Los datos se redirigen con `--data-dir=` (argumento); las variables `UMBRAL_*` solo se leen en compilaciones de depuración. |

@@ -174,6 +174,7 @@ export component AppWindow inherits Window {
     in-out property <bool> photo-backup: false;
     in property <string> update-text;
     in property <string> app-version;
+    in-out property <string> updated-text;
 
     callback unlock(string);
     callback lock-now();
@@ -384,6 +385,22 @@ export component AppWindow inherits Window {
                         alignment: end;
                         Pill { icon-d: Icons.clipboard; label: root.width >= 1250px ? "Portapapeles al móvil" : ""; kind: 1; y: 6px; clicked => { root.send-clipboard(); } }
                         Pill { icon-d: Icons.sound; label: root.width >= 1250px ? (root.ringing ? "Parar" : "Hacer sonar") : ""; kind: root.ringing ? 5 : 1; y: 6px; clicked => { root.ring-phone(!root.ringing); } }
+                    }
+                }
+
+                // Aviso tras actualizar: qué versión quedó y enlace a sus novedades.
+                if root.updated-text != "": Rectangle {
+                    height: 44px;
+                    border-radius: 14px;
+                    background: #12404a;
+                    HorizontalLayout {
+                        padding-left: 16px;
+                        padding-right: 8px;
+                        spacing: 12px;
+                        Icon { d: Icons.check; tint: Theme.ok; width: 20px; height: 20px; y: 12px; }
+                        Text { text: root.updated-text; color: Theme.on-container; vertical-alignment: center; overflow: elide; horizontal-stretch: 1; }
+                        Pill { icon-d: Icons.open-in-new; label: "Ver novedades"; height: 32px; y: 6px; clicked => { root.open-link("https://github.com/juandr404/syncroumbral/releases/tag/v" + root.app-version); } }
+                        Pill { icon-d: Icons.close; label: ""; kind: 1; height: 32px; y: 6px; clicked => { root.updated-text = ""; } }
                     }
                 }
 

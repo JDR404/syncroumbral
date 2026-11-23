@@ -2,6 +2,15 @@
 
 ## Sin publicar
 
+### Actualizaciones
+- Tras actualizar, la app se abre con la ventana visible y una franja **«SyncroUmbral se actualizó a la versión X (antes Y)»** con botón «Ver novedades» (notas de esa versión en GitHub). Antes se reabría oculta en la bandeja sin decir nada.
+- La versión nueva espera a que la anterior libere el puerto de instancia única en vez de pedirle que se muestre (evita que la actualización termine sin ninguna copia en marcha).
+- La app recuerda la última versión ejecutada (`last-version`): el aviso aparece también si se actualiza con el instalador o desde una versión antigua del actualizador.
+
+### Pruebas
+- Las 26 pruebas de punta a punta del servidor y del protocolo (vinculación, código de un solo uso, límites antes de autenticar, bloqueo tras fallos, archivos compartidos, llamadas...) vuelven a ejecutarse: ahora usan una interfaz vacía en lugar del entorno de Tauri y corren con la versión Slint y en la CI (54 pruebas en total).
+- Corregido: en las compilaciones de prueba en modo `--release` la carpeta de recepción de pruebas se ignoraba y la prueba escribía en `Descargas\SyncroUmbral`.
+
 ## 0.7.2 — 2026-11-22
 
 ### Instalador de Windows

@@ -27,7 +27,7 @@ desktop-slint/src/
 desktop-slint/ui/        app.slint (ventana), notif.slint (tarjetas), toast.slint (aviso emergente), common.slint (paleta, botones, interruptores)
 ```
 
-Si cambias algo del agente, las dos interfaces lo reciben: las 43 pruebas del agente corren con Tauri y la de `glue_tests.rs` ejercita el
+Si cambias algo del agente, las dos interfaces lo reciben: las pruebas del agente (incluidas las de punta a punta del servidor, con una interfaz vacía) corren con la versión Slint y en la CI, y la de `glue_tests.rs` ejercita el
 agente real a través de la interfaz Slint (clave, archivos, notificaciones, QR, bloqueo).
 
 ## Qué tiene

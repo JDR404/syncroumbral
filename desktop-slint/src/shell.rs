@@ -42,6 +42,22 @@ pub fn run() {
     // `--send RUTA` (menú del Explorador): la copia en marcha recibe el archivo; si no hay, se envía cuando esta arranque.
     let send_arg: Option<String> = std::env::args().skip_while(|a| a != "--send").nth(1);
 
+    // `--updated-from=VERSION`: la lanza la versión anterior justo antes de cerrarse tras actualizar. Esa copia vieja aún
+    // ocupa el puerto de instancia única unos instantes: hay que esperar a que lo suelte, no pedirle que se muestre.
+    let mut updated_from: Option<String> = std::env::args().find_map(|a| a.strip_prefix("--updated-from=").map(str::to_string));
+    if let Some(v) = &updated_from {
+        startlog(&format!("arranque tras actualizar desde {v}"));
+        for _ in 0..40 {
+            match TcpListener::bind(("127.0.0.1", SINGLE_PORT)) {
+                Ok(l) => {
+                    drop(l);
+                    break;
+                }
+                Err(_) => std::thread::sleep(std::time::Duration::from_millis(250)),
+            }
+        }
+    }
+
     // Una sola copia: si ya hay otra, se le pide mostrar la ventana y esta sale.
     // Si el puerto no se puede abrir y tampoco responde otra copia (al arrancar Windows otro programa puede tenerlo un momento),
     // se reintenta unos segundos y, si sigue sin poderse, se arranca igualmente sin esa protección en vez de salir en silencio.
@@ -87,6 +103,22 @@ pub fn run() {
         }
     };
     let _ = std::fs::create_dir_all(&dir);
+    // Última versión que se ejecutó: si cambió (actualizador antiguo que relanza en segundo plano, o instalador encima),
+    // también se avisa de la actualización. Solo hacia una versión mayor; la primera ejecución no avisa.
+    {
+        let file = dir.join("last-version");
+        let current = env!("CARGO_PKG_VERSION");
+        if updated_from.is_none() {
+            if let Ok(prev) = std::fs::read_to_string(&file) {
+                let prev = prev.trim().to_string();
+                if !prev.is_empty() && crate::glue::is_newer(current, &prev) {
+                    startlog(&format!("versión nueva detectada al arrancar: {prev} -> {current}"));
+                    updated_from = Some(prev);
+                }
+            }
+        }
+        let _ = std::fs::write(&file, current);
+    }
     if boot::data_dir_arg().is_none() {
         let marker = dir.join("autostart-default");
         if !marker.exists() {
@@ -279,6 +311,9 @@ pub fn run() {
                 });
             }
         }
+    }
+    if let Some(v) = &updated_from {
+        win.set_updated_text(format!("SyncroUmbral se actualizó a la versión {} (antes {v}).", env!("CARGO_PKG_VERSION")).into());
     }
     if !background {
         let _ = win.show();

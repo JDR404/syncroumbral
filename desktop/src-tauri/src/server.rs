@@ -295,8 +295,8 @@ async fn session_loop(
     }
 }
 
-// Las pruebas usan el entorno de pruebas de Tauri: no se compilan en la interfaz Slint.
-#[cfg(all(test, not(feature = "slint-ui")))]
+// Pruebas de punta a punta del servidor y del protocolo, con una interfaz vacía: corren en la versión Slint (la publicada).
+#[cfg(test)]
 #[path = "server_tests.rs"]
 mod tests;
 

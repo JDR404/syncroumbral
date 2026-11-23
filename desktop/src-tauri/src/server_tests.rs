@@ -45,11 +45,22 @@ impl ServerCertVerifier for Pin {
     }
 }
 
+/// Interfaz vacía: el servidor solo necesita a quién avisar. Así las pruebas corren igual con Tauri que con Slint.
+#[derive(Clone)]
+struct NoUi;
+
+impl crate::ui::Ui for NoUi {
+    fn emit<S: serde::Serialize + Clone>(&self, _event: &str, _payload: S) {}
+    fn toast_show(&self) {}
+    fn toast_hide(&self) {}
+    fn close_web(&self) {}
+}
+
 struct Harness {
     core: Arc<Core>,
     port: u16,
     fp: String,
-    _app: tauri::App<tauri::test::MockRuntime>,
+    _app: NoUi,
 }
 
 async fn harness(hb_timeout: Duration) -> Harness {
@@ -75,10 +86,10 @@ async fn harness_with(hb_timeout: Duration, sync_notifs: bool) -> Harness {
     core.sync_notifs = sync_notifs;
     let core = Arc::new(core);
 
-    let app = tauri::test::mock_app();
+    let app = NoUi;
     let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
     let port = listener.local_addr().unwrap().port();
-    tokio::spawn(serve(app.handle().clone(), core.clone(), TlsAcceptor::from(Arc::new(cfg)), listener));
+    tokio::spawn(serve(app.clone(), core.clone(), TlsAcceptor::from(Arc::new(cfg)), listener));
     Harness { core, port, fp, _app: app }
 }
 
@@ -384,7 +395,7 @@ async fn locked_app_ignores_notifications() {
     assert_eq!(counts(&h), (1, 1));
 
     h.core.lock_now(); // el usuario bloquea con el móvil presente (el comando `lock` también notifica)
-    h.core.notify(h._app.handle());
+    h.core.notify(&h._app);
     settle().await;
     assert_eq!(counts(&h), (0, 0), "al bloquear se borran las notificaciones");
     say(&mut ws, notif("k2", "secreta", false)).await;
@@ -643,7 +654,7 @@ async fn muted_apps_are_dropped_now_and_later_and_remembered() {
     settle().await;
     assert_eq!(counts(&h).0, 2);
 
-    h.core.mute_app(h._app.handle(), "com.whatsapp", "WhatsApp");
+    h.core.mute_app(&h._app, "com.whatsapp", "WhatsApp");
     assert_eq!(counts(&h), (1, 1), "se quitan las notificaciones actuales de esa app y solo esas");
 
     say(&mut ws, notif("c", "nuevo", false)).await;
@@ -738,9 +749,9 @@ async fn shared_items_can_be_removed_individually_and_all_at_once() {
     settle().await;
     assert_eq!(shared_items(&h).len(), 2);
     let key = shared_items(&h)[0]["key"].as_str().unwrap().to_string();
-    h.core.remove_local(h._app.handle(), &key);
+    h.core.remove_local(&h._app, &key);
     assert_eq!(shared_items(&h).len(), 1, "se quita uno");
-    h.core.remove_shared(h._app.handle());
+    h.core.remove_shared(&h._app);
     assert_eq!(shared_items(&h).len(), 0, "se quita todo lo compartido");
     assert_eq!(counts(&h).0, 1, "las notificaciones del móvil no se tocan");
 }

@@ -4,8 +4,8 @@ Severidad: **P0** crítico · **P1** alto · **P2** medio · **P3** bajo. Tipo: 
 
 | ID | Prioridad | Tipo | Hallazgo |
 |---|---|---|---|
-| H-01 | P1 | Bug (UX) | Tras actualizar, la app se reabre oculta y no avisa |
-| H-02 | P1 | Riesgo | 26 pruebas del servidor y del protocolo no se ejecutan en ningún sitio |
+| H-01 | P1 | Bug (UX) | Tras actualizar, la app se reabre oculta y no avisa — **resuelto en `main` (2026-11-22), sin publicar** |
+| H-02 | P1 | Riesgo | 26 pruebas del servidor y del protocolo no se ejecutan en ningún sitio — **resuelto (2026-11-22): 54 pruebas activas** |
 | H-03 | P1 | Riesgo | Ejecutables e instalador sin firma de código |
 | H-04 | P1 | Deuda | CI mínima: solo en etiquetas, solo Windows, sin Android, sin `cargo audit` |
 | H-05 | P2 | Bug | El actualizador no vuelve atrás si la versión nueva no arranca |
@@ -16,7 +16,7 @@ Severidad: **P0** crítico · **P1** alto · **P2** medio · **P3** bajo. Tipo: 
 | H-10 | P3 | Riesgo | 8 dependencias sin mantenimiento (avisos) |
 | H-11 | P3 | Bug | Puertos fijos 47600/47601 |
 | H-12 | P3 | Riesgo (proceso) | Instalar desde una terminal de una app MSIX deja la instalación virtualizada |
-| H-13 | P3 | Deuda | Documentación desalineada (ver 02, A-07) |
+| H-13 | P3 | Deuda | Documentación desalineada (ver 02, A-07) — **resuelto (2026-11-22)** |
 
 ## Detalle
 

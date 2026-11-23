@@ -1993,7 +1993,12 @@ impl Ctx {
                 if crate::autostart::reg_run(&["query", key, "/v", "DisplayVersion"]) {
                     crate::autostart::reg_run(&["add", key, "/v", "DisplayVersion", "/t", "REG_SZ", "/d", &ver, "/f"]);
                 }
-                std::process::Command::new(&exe).arg("--background").spawn().map_err(|e| e.to_string())?;
+                // Se abre con la ventana visible (el usuario acaba de pulsar «Actualizar ahora») y sabiendo de qué versión viene,
+                // para mostrar el aviso «Actualizado a…» con las novedades.
+                std::process::Command::new(&exe)
+                    .arg(format!("--updated-from={}", env!("CARGO_PKG_VERSION")))
+                    .spawn()
+                    .map_err(|e| e.to_string())?;
                 Ok(())
             })();
             match r {
