@@ -7,6 +7,8 @@ Diagnóstico y plan, sin cambios en el código de producción. Documentos:
 
 **Límites**: sin acceso a Linux ni macOS; sin pruebas automáticas del móvil; mediciones en un solo PC (Windows 11). Hechos comprobados, inferencias y recomendaciones se distinguen en cada documento.
 
+> **Seguimiento (2026-11-23)**: resueltos en 0.7.3–0.7.5: H-01 (aviso y panel de novedades), H-02 (61 pruebas activas), H-04 (CI en cada push y pull request), H-05 (vuelta atrás automática), H-06 (estado del inicio en Ajustes), H-08 (borrado de datos viejos con confirmación) y H-13 (documentación). Además, `cargo audit` en la CI detectó y corrigió una vulnerabilidad nueva (`url`, RUSTSEC-2026-0592). Pendiente: el resto del roadmap (E2 en adelante).
+
 ## A. Diagnóstico ejecutivo
 
 1. **Estado real**: beta funcional en Windows, en uso diario, con un núcleo de seguridad sólido y consumo muy bajo. Lo débil es lo que rodea al producto: pruebas que no corren, CI mínima, observabilidad escasa y dependencia total de Windows.

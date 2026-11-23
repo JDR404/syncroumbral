@@ -1,0 +1,84 @@
+name: CI
+
+# Se ejecuta en cada cambio a main y en cada pull request (el repositorio es público: los minutos de Actions son gratis).
+# Si algo falla, no se fusiona. Publicar (etiquetas v*) lo hace build-windows.yml.
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  pc:
+    name: "PC (Windows): pruebas"
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: desktop-slint
+      - name: "Pruebas (agente, servidor, interfaz, instalación)"
+        working-directory: desktop-slint
+        run: cargo test --release
+      - name: Compilar
+        working-directory: desktop-slint
+        run: cargo build --release
+      - name: El instalador compila
+        shell: pwsh
+        run: |
+          if (-not (Test-Path "${env:ProgramFiles(x86)}\NSIS\makensis.exe") -and -not (Get-Command makensis -ErrorAction SilentlyContinue)) { choco install nsis -y --no-progress }
+          powershell -ExecutionPolicy Bypass -File instalador/compilar.ps1
+      - name: "Prueba de instalación y desinstalación silenciosas"
+        shell: pwsh
+        run: |
+          $setup = (Get-ChildItem instalador/*-setup.exe | Select-Object -First 1).FullName
+          $dir = Join-Path $env:RUNNER_TEMP "umbral-instalacion"
+          Start-Process $setup -ArgumentList '/S', "/D=$dir" -Wait
+          if (-not (Test-Path "$dir\syncroumbral.exe")) { throw "El instalador no copió el programa" }
+          $key = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\SyncroUmbral'
+          if (-not (Test-Path $key)) { throw "No se registró en Aplicaciones instaladas" }
+          $run = (Get-ItemProperty 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Run').SyncroUmbral
+          if ($run -ne ('"{0}\syncroumbral.exe" --background' -f $dir)) { throw "Entrada de inicio incorrecta: $run" }
+          Start-Process "$dir\uninstall.exe" -ArgumentList '/S' -Wait
+          Start-Sleep -Seconds 5
+          if (Test-Path "$dir\syncroumbral.exe") { throw "La desinstalación no quitó el programa" }
+          if (Test-Path $key) { throw "La desinstalación no quitó el registro" }
+          if ((Get-ItemProperty 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Run' -ErrorAction SilentlyContinue).SyncroUmbral) { throw "Quedó la entrada de inicio" }
+          "Instalación y desinstalación correctas"
+
+  seguridad:
+    name: "Dependencias (cargo audit)"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-audit
+      # RUSTSEC-2026-0387 (crypto-bigint 0.5.5 vía p256): variaciones de tiempo; no explotable aquí (ver docs/auditoria/03).
+      # Quitar la excepción en cuanto p256 permita crypto-bigint >= 0.7.6.
+      - name: Vulnerabilidades conocidas
+        working-directory: desktop-slint
+        run: cargo audit --ignore RUSTSEC-2026-0387
+
+  movil:
+    name: "Móvil (Android): compilación de producción"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - uses: gradle/actions/setup-gradle@v4
+      - name: "Compilar release (R8 activado; sin clave sale sin firmar)"
+        working-directory: android
+        run: ./gradlew assembleRelease --no-daemon

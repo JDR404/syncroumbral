@@ -537,6 +537,8 @@ impl Ctx {
 
     fn on_unlocked(self: &Arc<Self>, w: &AppWindow) {
         w.set_autostart(crate::autostart::autostart_enabled());
+        refresh_autostart_status(w);
+        self.refresh_disk();
         w.set_services(model(self.services()));
         self.push_notifs();
         self.load_pc(None);
@@ -1385,10 +1387,19 @@ pub fn wire(win: &AppWindow, ctx: &Arc<Ctx>) {
         c.core.notify(&c.sink());
     });
     let c = ctx.clone();
+    let w = win.as_weak();
     win.on_toggled_autostart(move |on| {
         if let Err(e) = crate::autostart::set_autostart(on) {
             c.status(e);
         }
+        if let Some(w) = w.upgrade() {
+            refresh_autostart_status(&w);
+        }
+    });
+    let c2 = ctx.clone();
+    win.on_delete_old_data(move || c2.delete_old_data());
+    win.on_open_startup_settings(|| {
+        let _ = std::process::Command::new("explorer").arg("ms-settings:startupapps").spawn();
     });
     let c = ctx.clone();
     win.on_toggled_mute(move |on| c.core.set_mute_on_call(on));
@@ -1909,6 +1920,41 @@ impl Ctx {
         });
     }
 
+    /// Calcula cuánto ocupan los datos de SyncroUmbral y si quedan los de la versión anterior (Tauri/WebView2).
+    pub fn refresh_disk(self: &Arc<Self>) {
+        let me = self.clone();
+        self.rt.spawn_blocking(move || {
+            let dir = me.core.dir.clone();
+            let old = dir_size(&dir.join("web"));
+            let sessions = dir_size(&dir.join("web-edge"));
+            let total = dir_size(&dir);
+            let text = format!("Total: {}. Sesiones de mensajería (WhatsApp, Telegram...): {}.", fmt_mb(total), fmt_mb(sessions));
+            let old_text = format!(
+                "Quedan {} de la versión anterior de SyncroUmbral (la de WebView2). La versión actual no los usa: se pueden borrar sin perder nada.",
+                fmt_mb(old)
+            );
+            me.ui(move |w| {
+                w.set_disk_text(text.into());
+                w.set_old_data_text(old_text.into());
+                w.set_old_data_exists(old > 0);
+            });
+        });
+    }
+
+    /// Borra solo la carpeta `web` (datos de la versión anterior, sin uso). Nunca toca `web-edge` ni las claves.
+    pub fn delete_old_data(self: &Arc<Self>) {
+        let me = self.clone();
+        self.rt.spawn_blocking(move || {
+            let old = me.core.dir.join("web");
+            let before = dir_size(&old);
+            match std::fs::remove_dir_all(&old) {
+                Ok(()) => me.status(format!("Listo: se liberaron {}", fmt_mb(before))),
+                Err(e) => me.status(format!("No se pudo borrar todo: {e}")),
+            }
+            me.refresh_disk();
+        });
+    }
+
     /// Búsqueda manual desde «Acerca de»: dice el resultado en la barra de estado.
     pub fn check_updates_now(self: &Arc<Self>) {
         let me = self.clone();
@@ -1993,6 +2039,9 @@ impl Ctx {
                 if crate::autostart::reg_run(&["query", key, "/v", "DisplayVersion"]) {
                     crate::autostart::reg_run(&["add", key, "/v", "DisplayVersion", "/t", "REG_SZ", "/d", &ver, "/f"]);
                 }
+                // Marca de «actualización por confirmar»: la versión nueva la borra cuando llega a estar lista. Si no llega
+                // (dos arranques seguidos sin lograrlo), vuelve sola a la anterior (ver `shell.rs`, `rollback_files`).
+                let _ = std::fs::write(me.core.dir.join("update-pending"), format!("{}\n0", env!("CARGO_PKG_VERSION")));
                 // Se abre con la ventana visible (el usuario acaba de pulsar «Actualizar ahora») y sabiendo de qué versión viene,
                 // para mostrar el aviso «Actualizado a…» con las novedades.
                 std::process::Command::new(&exe)
@@ -2521,5 +2570,59 @@ mod novedades_tests {
     #[test]
     fn version_sin_notas_da_un_mensaje_claro() {
         assert!(whats_new_text("9.9.9").contains("no tiene notas"));
+    }
+}
+
+
+/// Muestra en Ajustes si el inicio con Windows funcionará y, si no, por qué.
+fn refresh_autostart_status(w: &AppWindow) {
+    let e = crate::autostart::estado();
+    w.set_autostart_status(e.texto().into());
+    w.set_autostart_problem(e.es_problema());
+}
+
+
+/// Tamaño total de una carpeta (0 si no existe).
+fn dir_size(p: &std::path::Path) -> u64 {
+    std::fs::read_dir(p)
+        .map(|rd| {
+            rd.flatten()
+                .map(|e| match e.metadata() {
+                    Ok(m) if m.is_dir() => dir_size(&e.path()),
+                    Ok(m) => m.len(),
+                    _ => 0,
+                })
+                .sum()
+        })
+        .unwrap_or(0)
+}
+
+fn fmt_mb(bytes: u64) -> String {
+    if bytes >= 1 << 30 {
+        format!("{:.1} GB", bytes as f64 / (1u64 << 30) as f64)
+    } else {
+        format!("{:.0} MB", bytes as f64 / (1u64 << 20) as f64)
+    }
+}
+
+#[cfg(test)]
+mod disco_tests {
+    use super::{dir_size, fmt_mb};
+
+    #[test]
+    fn tamanos_legibles() {
+        assert_eq!(fmt_mb(5 << 20), "5 MB");
+        assert_eq!(fmt_mb(3 << 30), "3.0 GB");
+    }
+
+    #[test]
+    fn suma_recursiva_y_carpeta_inexistente() {
+        let d = std::env::temp_dir().join(format!("umbral-disco-{}", std::process::id()));
+        std::fs::create_dir_all(d.join("a").join("b")).unwrap();
+        std::fs::write(d.join("x.bin"), [0u8; 100]).unwrap();
+        std::fs::write(d.join("a").join("b").join("y.bin"), [0u8; 50]).unwrap();
+        assert_eq!(dir_size(&d), 150);
+        assert_eq!(dir_size(&d.join("no-existe")), 0);
+        let _ = std::fs::remove_dir_all(&d);
     }
 }

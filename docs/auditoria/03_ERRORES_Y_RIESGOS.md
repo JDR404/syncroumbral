@@ -4,15 +4,15 @@ Severidad: **P0** crítico · **P1** alto · **P2** medio · **P3** bajo. Tipo: 
 
 | ID | Prioridad | Tipo | Hallazgo |
 |---|---|---|---|
-| H-01 | P1 | Bug (UX) | Tras actualizar, la app se reabre oculta y no avisa — **resuelto en `main` (2026-11-22), sin publicar** |
-| H-02 | P1 | Riesgo | 26 pruebas del servidor y del protocolo no se ejecutan en ningún sitio — **resuelto (2026-11-22): 54 pruebas activas** |
+| H-01 | P1 | Bug (UX) | Tras actualizar, la app se reabre oculta y no avisa — **resuelto en 0.7.3/0.7.4 (aviso y panel de novedades)** |
+| H-02 | P1 | Riesgo | 26 pruebas del servidor y del protocolo no se ejecutan en ningún sitio — **resuelto (2026-11-22): 61 pruebas activas en 0.7.5** |
 | H-03 | P1 | Riesgo | Ejecutables e instalador sin firma de código |
-| H-04 | P1 | Deuda | CI mínima: solo en etiquetas, solo Windows, sin Android, sin `cargo audit` |
-| H-05 | P2 | Bug | El actualizador no vuelve atrás si la versión nueva no arranca |
-| H-06 | P2 | Riesgo | Sin diagnóstico del inicio automático en la interfaz |
+| H-04 | P1 | Deuda | CI mínima: solo en etiquetas, solo Windows, sin Android, sin `cargo audit` — **resuelto en 0.7.5 (CI en cada push y PR)** |
+| H-05 | P2 | Bug | El actualizador no vuelve atrás si la versión nueva no arranca — **resuelto en 0.7.5 (vuelta atrás automática)** |
+| H-06 | P2 | Riesgo | Sin diagnóstico del inicio automático en la interfaz — **resuelto en 0.7.5 (estado del inicio en Ajustes)** |
 | H-07 | P2 | Riesgo | `dpapi()` fuera de Windows guarda los secretos sin cifrar |
-| H-08 | P2 | Deuda | 2 GB de datos (1 GB huérfano de la versión Tauri) |
-| H-09 | P2 | Riesgo | Vulnerabilidad RUSTSEC-2026-0387 (`crypto-bigint` vía `p256`) |
+| H-08 | P2 | Deuda | 2 GB de datos (1 GB huérfano de la versión Tauri) — **resuelto en 0.7.5 (borrado con confirmación)** |
+| H-09 | P2 | Riesgo | Vulnerabilidad RUSTSEC-2026-0387 (`crypto-bigint` vía `p256`) — **vigente: la CI lo ignora de forma documentada** |
 | H-10 | P3 | Riesgo | 8 dependencias sin mantenimiento (avisos) |
 | H-11 | P3 | Bug | Puertos fijos 47600/47601 |
 | H-12 | P3 | Riesgo (proceso) | Instalar desde una terminal de una app MSIX deja la instalación virtualizada |

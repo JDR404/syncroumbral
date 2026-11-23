@@ -2,6 +2,21 @@
 
 ## Sin publicar
 
+## 0.7.5 — 2026-11-23
+
+### Qué ha cambiado
+- **Inicio con Windows explicado**: en Móviles y ajustes, debajo de «Iniciar con Windows», SyncroUmbral te dice si arrancará solo y, si no, por qué (Windows lo tiene desactivado, la ruta ya no existe, apunta a otra copia...). Con un botón para abrir la pantalla de Inicio de Windows.
+- **Espacio en disco**: nueva tarjeta con lo que ocupan tus datos y las sesiones de mensajería. Si quedan datos de la versión anterior de SyncroUmbral (más de 1 GB en algunos equipos), ofrece borrarlos con confirmación; no se pierde nada porque la versión actual no los usa.
+- **Vuelta atrás automática**: si una actualización no llega a arrancar bien dos veces seguidas, SyncroUmbral vuelve solo a la versión anterior y te avisa.
+- Se actualizó una biblioteca interna (`url`) por un fallo de seguridad publicado el 20 de noviembre.
+
+### Detalles técnicos
+- Nuevo flujo de integración continua `.github/workflows/ci.yml` en cada push y pull request: pruebas y compilación en Windows, prueba de instalación y desinstalación silenciosas, `cargo audit` (con la excepción documentada RUSTSEC-2026-0387) y compilación del móvil (R8).
+- `autostart::classify` y `Estado` (función pura con pruebas); `StartupApproved` se lee para detectar «desactivado en Windows».
+- Vuelta atrás: marca `update-pending` («versión anterior
+intentos»); se borra al llegar a «listo». Con un intento fallido previo, la copia nueva restaura `.old` (`rollback_files`), libera el puerto de instancia única y lanza la anterior con `--rolled-back=`. Con pruebas.
+- 61 pruebas en total.
+
 ## 0.7.4 — 2026-11-22
 
 ### Qué ha cambiado

@@ -25,6 +25,44 @@ fn startlog(msg: &str) {
     }
 }
 
+/// Qué hacer con la marca `update-pending` (la deja el actualizador al reemplazar el programa).
+#[derive(Debug, PartialEq, Eq)]
+enum PendingStep {
+    /// No hay actualización por confirmar.
+    Nothing,
+    /// Primer arranque de la versión nueva: se anota el intento número N.
+    Continue(u32),
+    /// El arranque anterior no llegó a estar listo: se vuelve a la versión anterior.
+    Rollback,
+}
+
+/// El contenido de `update-pending` es «versión anterior\nintentos» (intentos = arranques que no llegaron a «listo»).
+fn pending_step(content: Option<&str>) -> PendingStep {
+    let Some(c) = content else { return PendingStep::Nothing };
+    let tries = c.lines().nth(1).and_then(|x| x.trim().parse::<u32>().ok()).unwrap_or(0);
+    if tries >= 1 {
+        PendingStep::Rollback
+    } else {
+        PendingStep::Continue(tries + 1)
+    }
+}
+
+/// Deja el ejecutable anterior (`.old`) en el lugar del actual (que pasa a `.bad`). Falso si no hay `.old`.
+fn rollback_files(exe: &std::path::Path) -> std::io::Result<bool> {
+    let old = exe.with_extension("old");
+    if !old.exists() {
+        return Ok(false);
+    }
+    let bad = exe.with_extension("bad");
+    let _ = std::fs::remove_file(&bad);
+    std::fs::rename(exe, &bad)?; // un ejecutable en marcha se puede renombrar
+    if let Err(e) = std::fs::copy(&old, exe) {
+        let _ = std::fs::rename(&bad, exe);
+        return Err(e);
+    }
+    Ok(true)
+}
+
 pub fn run() {
     let background = std::env::args().any(|a| a == "--background");
     startlog(if background { "inicio en segundo plano" } else { "inicio" });
@@ -45,8 +83,15 @@ pub fn run() {
     // `--updated-from=VERSION`: la lanza la versión anterior justo antes de cerrarse tras actualizar. Esa copia vieja aún
     // ocupa el puerto de instancia única unos instantes: hay que esperar a que lo suelte, no pedirle que se muestre.
     let mut updated_from: Option<String> = std::env::args().find_map(|a| a.strip_prefix("--updated-from=").map(str::to_string));
-    if let Some(v) = &updated_from {
-        startlog(&format!("arranque tras actualizar desde {v}"));
+    // `--rolled-back=VERSION`: la lanza la versión nueva que no arrancó bien, tras devolver el programa anterior.
+    let rolled_back: Option<String> = std::env::args().find_map(|a| a.strip_prefix("--rolled-back=").map(str::to_string));
+    if let Some(v) = &rolled_back {
+        startlog(&format!("arranque tras volver a la versión anterior (la {v} no arrancó bien)"));
+    }
+    if updated_from.is_some() || rolled_back.is_some() {
+        if let Some(v) = &updated_from {
+            startlog(&format!("arranque tras actualizar desde {v}"));
+        }
         for _ in 0..40 {
             match TcpListener::bind(("127.0.0.1", SINGLE_PORT)) {
                 Ok(l) => {
@@ -118,6 +163,37 @@ pub fn run() {
             }
         }
         let _ = std::fs::write(&file, current);
+    }
+    // Vuelta atrás automática: tras una actualización queda la marca `update-pending`. Se borra al llegar a «listo»; si el
+    // arranque anterior no llegó, esta copia (la nueva, rota) deja el programa anterior (`.old`) y lo vuelve a abrir.
+    let pending_path = dir.join("update-pending");
+    if boot::data_dir_arg().is_none() {
+        let content = std::fs::read_to_string(&pending_path).ok();
+        let prev = content.as_deref().and_then(|c| c.lines().next()).unwrap_or("").trim().to_string();
+        match pending_step(content.as_deref()) {
+            PendingStep::Nothing => {}
+            PendingStep::Continue(n) => {
+                let _ = std::fs::write(&pending_path, format!("{prev}\n{n}"));
+            }
+            PendingStep::Rollback => {
+                startlog("la versión nueva no llegó a estar lista en el arranque anterior: se vuelve a la versión anterior");
+                let exe = std::env::current_exe().unwrap_or_default();
+                let _ = std::fs::remove_file(&pending_path);
+                match rollback_files(&exe) {
+                    Ok(true) => {
+                        if !prev.is_empty() {
+                            let _ = std::fs::write(dir.join("last-version"), &prev);
+                        }
+                        startlog("versión anterior restaurada; se vuelve a abrir");
+                        drop(listener); // la anterior no espera: el puerto de instancia única tiene que estar libre
+                        let _ = std::process::Command::new(&exe).arg(format!("--rolled-back={}", env!("CARGO_PKG_VERSION"))).spawn();
+                        return;
+                    }
+                    Ok(false) => startlog("no hay copia de la versión anterior (.old): se continúa con esta"),
+                    Err(e) => startlog(&format!("no se pudo volver a la versión anterior: {e}")),
+                }
+            }
+        }
     }
     if boot::data_dir_arg().is_none() {
         let marker = dir.join("autostart-default");
@@ -318,9 +394,14 @@ pub fn run() {
         win.set_updated_text(format!("SyncroUmbral se actualizó a la versión {} (antes {v}).", env!("CARGO_PKG_VERSION")).into());
         win.set_whats_new(crate::glue::whats_new_text(env!("CARGO_PKG_VERSION")).into());
     }
-    if !background || updated_from.is_some() {
+    if let Some(v) = &rolled_back {
+        ctx.status(format!("La versión {v} no arrancó bien y se restauró la anterior ({}).", env!("CARGO_PKG_VERSION")));
+    }
+    if !background || updated_from.is_some() || rolled_back.is_some() {
         let _ = win.show();
     }
+    // Llegó a estar lista: la actualización queda confirmada.
+    let _ = std::fs::remove_file(&pending_path);
     startlog("listo");
     let _ = slint::run_event_loop_until_quit();
     startlog("cierre normal");
@@ -375,4 +456,36 @@ fn make_tray(ctx: Arc<Ctx>) -> Option<tray_icon::TrayIcon> {
         b = b.with_icon(i);
     }
     b.build().ok()
+}
+
+
+#[cfg(test)]
+mod rollback_tests {
+    use super::{pending_step, rollback_files, PendingStep};
+
+    #[test]
+    fn marca_de_actualizacion_pendiente() {
+        assert_eq!(pending_step(None), PendingStep::Nothing);
+        assert_eq!(pending_step(Some("0.7.3\n0")), PendingStep::Continue(1));
+        assert_eq!(pending_step(Some("0.7.3")), PendingStep::Continue(1));
+        assert_eq!(pending_step(Some("0.7.3\n1")), PendingStep::Rollback);
+        assert_eq!(pending_step(Some("0.7.3\n2")), PendingStep::Rollback);
+    }
+
+    #[test]
+    fn vuelve_al_programa_anterior() {
+        let d = std::env::temp_dir().join(format!("umbral-rollback-{}", std::process::id()));
+        std::fs::create_dir_all(&d).unwrap();
+        let exe = d.join("syncroumbral.exe");
+        std::fs::write(&exe, b"NUEVA").unwrap();
+        // sin .old no hay a qué volver
+        assert!(!rollback_files(&exe).unwrap());
+        assert_eq!(std::fs::read(&exe).unwrap(), b"NUEVA");
+        // con .old: el ejecutable pasa a ser el anterior y el roto queda como .bad
+        std::fs::write(d.join("syncroumbral.old"), b"ANTERIOR").unwrap();
+        assert!(rollback_files(&exe).unwrap());
+        assert_eq!(std::fs::read(&exe).unwrap(), b"ANTERIOR");
+        assert_eq!(std::fs::read(d.join("syncroumbral.bad")).unwrap(), b"NUEVA");
+        let _ = std::fs::remove_dir_all(&d);
+    }
 }
