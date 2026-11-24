@@ -16,6 +16,7 @@ export component ToastWindow inherits Window {
     callback reply(string, int, string);
     callback answer(string);
     callback end(string);
+    callback silence();
     callback action(string, int);
     callback copy-code(string);
     callback open-app();
@@ -33,6 +34,7 @@ export component ToastWindow inherits Window {
                 reply(t) => { root.reply(n.key, n.reply-index, t); }
                 answer => { root.answer(n.key); }
                 end => { root.end(n.key); }
+                silence => { root.silence(); }
                 action(i) => { root.action(n.key, i); }
                 copy-code(c) => { root.copy-code(c); }
             }

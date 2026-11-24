@@ -16,6 +16,7 @@ export component NotifCard inherits Rectangle {
     callback reply(string);
     callback answer();
     callback end();
+    callback silence();
     callback action(int);
     callback copy-code(string);
     background: card-touch.has-hover ? Theme.surface2 : Theme.surface;
@@ -90,6 +91,8 @@ export component NotifCard inherits Rectangle {
             height: 40px;
             alignment: start;
             if n.incoming: Pill { label: "Contestar"; kind: 4; clicked => { root.answer(); } }
+            // Corta el timbre del PC sin colgar: la llamada sigue sonando en el móvil y se puede contestar o rechazar después.
+            if n.incoming: Pill { label: "Silenciar"; kind: 2; clicked => { root.silence(); } }
             Pill { label: n.incoming ? "Rechazar" : "Colgar"; kind: 5; clicked => { root.end(); } }
             Text { text: root.status; color: Theme.muted; vertical-alignment: center; overflow: elide; }
         }

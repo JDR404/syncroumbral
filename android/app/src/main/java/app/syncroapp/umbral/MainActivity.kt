@@ -53,7 +53,7 @@ class MainActivity : Activity() {
         const val BAD_BG = 0xFF3A1B18.toInt()
         const val WARN = 0xFFFFD8A8.toInt()
         const val WARN_BG = 0xFF3A2A14.toInt()
-        const val REPO = "https://github.com/juandr404/syncroumbral"
+        const val REPO = "https://github.com/JDR404/syncroumbral"
         const val REQ_PICK = 10
         val PAGES = listOf("Inicio", "Permisos", "Ajustes", "Info")
     }
@@ -479,7 +479,7 @@ class MainActivity : Activity() {
         download.addView(text("Instalar el programa del PC", 17f, TEXT, true))
         download.addView(text(
             "Necesitas la parte de Windows (10 u 11, 64 bits). El instalador se llama SyncroUmbral_0.2.0_x64-setup.exe y está en la " +
-                "carpeta de entrega junto a este APK, y en el repositorio privado del proyecto (cuenta juandr404):\n$REPO\n\n" +
+                "carpeta de entrega junto a este APK, y en el repositorio privado del proyecto (cuenta JDR404):\n$REPO\n\n" +
                 "1. Instálalo en el PC y ábrelo (se queda en la bandeja y arranca con Windows).\n" +
                 "2. Crea la clave de respaldo.\n" +
                 "3. En \"Móviles y ajustes\" pulsa \"Mostrar QR de vinculación\".\n" +

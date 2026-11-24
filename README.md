@@ -6,7 +6,7 @@
 > está abierta. Si se va, la aplicación se bloquea y oculta todo lo que había en pantalla. Sin móvil, solo se abre con una clave de respaldo.
 > Además trae al PC tus notificaciones, tus archivos y tus apps.
 
-Estado: **beta 0.7.5** · PC con interfaz nativa Slint (la versión Tauri de `desktop/` queda como referencia y ya no se publica) · Parte del portafolio de **SyncroApp** · Desarrollador: SyncroApp, `syncroapp.dev@gmail.com`
+Estado: **beta 0.7.6** · PC con interfaz nativa Slint (la versión Tauri de `desktop/` queda como referencia y ya no se publica) · Parte del portafolio de **SyncroApp** · Desarrollador: SyncroApp, `syncroapp.dev@gmail.com`
 (nombre anterior del proyecto: Umbral) · Seguridad: [docs/AUDITORIA_SEGURIDAD.md](docs/AUDITORIA_SEGURIDAD.md)
 
 Novedades de cada versión: [CHANGELOG.md](CHANGELOG.md).
@@ -99,7 +99,7 @@ CHANGELOG.md              Qué cambió en cada versión
 
 Guía completa (firewall, Play Protect, instalación por `adb`): [docs/INSTALACION.md](docs/INSTALACION.md). Resumen:
 
-1. Descarga de la página de [**Releases**](https://github.com/juandr404/syncroumbral/releases/latest) el instalador `SyncroUmbral-x.y.z-setup.exe` (PC) y el `.apk` (móvil). El instalador es por usuario y no pide administrador: deja SyncroUmbral en «Aplicaciones instaladas», en el menú Inicio y arrancando con Windows (también existe el `.exe` suelto, sin instalar). Crea la **clave de respaldo** al abrirlo.
+1. Descarga de la página de [**Releases**](https://github.com/JDR404/syncroumbral/releases/latest) el instalador `SyncroUmbral-x.y.z-setup.exe` (PC) y el `.apk` (móvil). El instalador es por usuario y no pide administrador: deja SyncroUmbral en «Aplicaciones instaladas», en el menú Inicio y arrancando con Windows (también existe el `.exe` suelto, sin instalar). Crea la **clave de respaldo** al abrirlo.
 2. Instala `app-release.apk` en el móvil y concede: archivos, acceso a notificaciones, avisos, y (opcional) contestar llamadas y
    mostrar sobre otras apps. La pestaña **Permisos** de la app muestra qué falta.
 3. En el PC: *Móviles y ajustes* → "Mostrar QR de vinculación". En el móvil: "Escanear QR del PC" y confirma que la huella coincide.
@@ -194,12 +194,12 @@ SyncroUmbral es software libre bajo la **GNU GPL v3 o posterior** ([LICENSE](LIC
 
 ## Política de firma de código
 
-Página del proyecto: https://www.syncroapp.dev/umbral/ · Política de privacidad: https://www.syncroapp.dev/umbral/privacidad
+Página del proyecto: https://www.syncroapp.dev/syncroumbral/ · Política de privacidad: https://www.syncroapp.dev/syncroumbral/privacidad
 
 **Estado actual:** los ejecutables de Windows todavía **no están firmados** (SmartScreen puede avisar); cada versión publica su `SHA256SUMS.txt` para verificarlos. Las versiones publicadas hasta ahora se compilaron en el equipo del autor.
 
 **Plan:** la solicitud del certificado gratuito de [SignPath Foundation](https://signpath.org/) se envió el 2026-11-19 y el 2026-11-20 respondieron que por ahora no pueden aprobarla: el programa pide antes una visibilidad pública que el proyecto aún no tiene. Se volverá a solicitar cuando la tenga. Mientras tanto las versiones siguen sin firma de Windows y se verifican con su `SHA256SUMS.txt`. Si se consigue un certificado, las versiones se compilarán en GitHub Actions a partir de este repositorio público (`.github/workflows/build-windows.yml`, ya preparado) y este apartado se actualizará entonces.
 
-- **Autor y aprobador de las firmas:** el propietario del repositorio ([@juandr404](https://github.com/juandr404)).
+- **Autor y aprobador de las firmas:** el propietario del repositorio ([@JDR404](https://github.com/JDR404)).
 - **Privacidad:** el programa no envía datos a servidores del autor; solo habla con tu móvil por la red local y consulta las publicaciones de GitHub para buscar actualizaciones. Detalle en [docs/SEGURIDAD.md](docs/SEGURIDAD.md).
 - Además, la actualización automática verifica una firma propia (ECDSA P-256) de `SHA256SUMS.txt`.

@@ -129,6 +129,8 @@ pub struct Core {
     pub app_windows: crate::appwin::Windows,
     /// ¿Está sonando el timbre de una llamada entrante?
     ringing: Arc<AtomicBool>,
+    /// El usuario pulsó «Silenciar»: la llamada sigue sonando en el móvil, pero el PC no vuelve a sonar hasta la próxima llamada.
+    ring_silenced: AtomicBool,
     /// Archivos que el móvil está enviando al PC ("Compartir con el PC").
     pub shares: Mutex<HashMap<u64, crate::share::Incoming>>,
     /// Apps cuyas notificaciones se ignoran: paquete a nombre visible.
@@ -190,6 +192,7 @@ impl Core {
             sync_notifs: false,
             app_windows: Mutex::new(HashMap::new()),
             ringing: Arc::new(AtomicBool::new(false)),
+            ring_silenced: AtomicBool::new(false),
             shares: Mutex::new(HashMap::new()),
             muted: Mutex::new(muted),
             hb_timeout: HB_TIMEOUT,
@@ -359,7 +362,7 @@ impl Core {
         if popup {
             h.toast_show();
         }
-        if v["incoming"] == true {
+        if v["incoming"] == true && !self.ring_silenced.load(Ordering::SeqCst) {
             crate::ring::start(&self.ringing, self.mute_on_call());
         }
         self.stop_ring_if_no_incoming_call();
@@ -369,7 +372,15 @@ impl Core {
     fn stop_ring_if_no_incoming_call(&self) {
         if !self.notifs.lock().unwrap().iter().any(|n| n["incoming"] == true) {
             crate::ring::stop(&self.ringing);
+            // Ya no hay llamada: la próxima volverá a sonar.
+            self.ring_silenced.store(false, Ordering::SeqCst);
         }
+    }
+
+    /// «Silenciar»: corta el timbre del PC sin contestar ni rechazar. La llamada sigue activa en el móvil y en la lista.
+    pub fn silence_ring(&self) {
+        self.ring_silenced.store(true, Ordering::SeqCst);
+        crate::ring::stop(&self.ringing);
     }
 
     #[cfg(test)]

@@ -175,7 +175,10 @@ export component Pill inherits Rectangle {
     in property <string> icon-d;
     in property <int> kind: 0;
     in property <bool> enabled: true;
+    // Explicación del botón: se muestra bajo el título de la página mientras el ratón está encima.
+    in property <string> hint;
     callback clicked();
+    callback hovered(string);
     height: 36px;
     min-width: root.label == "" ? 40px : 84px;
     horizontal-stretch: 0;
@@ -213,6 +216,8 @@ export component Pill inherits Rectangle {
         enabled: root.enabled;
         mouse-cursor: pointer;
         clicked => { root.clicked(); }
+        // Al pasar el ratón se anuncia la explicación; al salir se anuncia vacía.
+        changed has-hover => { root.hovered(self.has-hover ? root.hint : ""); }
     }
 }
 

@@ -13,7 +13,7 @@ variar por modelo de teléfono y versión.
 | P1 | Notificaciones del móvil en el PC, con respuesta y botones | Hecho | Ventana propia (ligera). Además admite llamadas y reproductor |
 | P2 | Archivos del móvil (explorador, enviar y traer) | Hecho | |
 | P3 | Apps del móvil en una ventana del PC | Hecho | Cualquier Android con adb y scrcpy (Phone Link lo limita por fabricante) |
-| P4 | Contestar y colgar llamadas desde el PC | Hecho | |
+| P4 | Contestar y colgar llamadas desde el PC | Hecho | Desde 0.7.6, «Silenciar» corta el timbre del PC sin colgar (la llamada sigue sonando en el móvil) |
 | P5 | Arrastrar y soltar desde el Explorador | Hecho | Soltar sobre la ventana envía a la carpeta del móvil abierta. Además, clic derecho en un archivo: «Enviar al móvil» (ver M7). La suelta con el ratón no se pudo probar de forma automática: el envío por el menú del Explorador usa el mismo camino y sí está probado |
 | P6 | Portapapeles PC al móvil | Hecho | `clip_set` |
 | P7 | Portapapeles móvil al PC | Hecho | Botón «Copiar al PC» en la notificación permanente (abre una actividad transparente que lo lee en primer plano, único modo permitido desde Android 10). La pulsación del botón está probada; el viaje completo del texto no se pudo comprobar de forma automática |

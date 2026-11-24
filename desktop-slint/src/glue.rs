@@ -870,6 +870,8 @@ impl Ctx {
                 let c = me.clone();
                 w.on_end(move |key| c.call_op("call_end", key.to_string(), false));
                 let c = me.clone();
+                w.on_silence(move || c.silence_call());
+                let c = me.clone();
                 w.on_action(move |key, i| c.notif_action(key.to_string(), i));
                 let c = me.clone();
                 w.on_copy_code(move |code| c.copy_code(code.to_string()));
@@ -924,6 +926,12 @@ impl Ctx {
                 Err(e) => me.ui(move |w| w.set_call_status(e.into())),
             }
         });
+    }
+
+    /// «Silenciar»: el PC deja de sonar, pero la llamada no se contesta ni se rechaza.
+    fn silence_call(self: &Arc<Self>) {
+        self.core.silence_ring();
+        self.ui(|w| w.set_call_status("Timbre del PC silenciado; la llamada sigue en el móvil".into()));
     }
 
     fn notif_action(self: &Arc<Self>, key: String, idx: i32) {
@@ -1256,6 +1264,8 @@ pub fn wire(win: &AppWindow, ctx: &Arc<Ctx>) {
     win.on_call_answer(move |key| c.call_op("call_answer", key.to_string(), true));
     let c = ctx.clone();
     win.on_call_end(move |key| c.call_op("call_end", key.to_string(), false));
+    let c = ctx.clone();
+    win.on_call_silence(move || c.silence_call());
     let c = ctx.clone();
     win.on_notif_action(move |key, i| c.notif_action(key.to_string(), i));
     let c = ctx.clone();
@@ -1974,7 +1984,7 @@ impl Ctx {
 
     /// (versión, url del exe, url de SHA256SUMS) de la última versión publicada si es más nueva que la instalada.
     fn check_update(&self) -> Option<(String, String, String, String)> {
-        let r: Value = ureq::get("https://api.github.com/repos/juandr404/syncroumbral/releases?per_page=1")
+        let r: Value = ureq::get("https://api.github.com/repos/JDR404/syncroumbral/releases?per_page=1")
             .set("User-Agent", "SyncroUmbral")
             .timeout(Duration::from_secs(15))
             .call()
@@ -1990,7 +2000,12 @@ impl Ctx {
             rel["assets"].as_array()?.iter().find_map(|a| {
                 let n = a["name"].as_str()?;
                 let u = a["browser_download_url"].as_str()?;
-                (n.ends_with(suffix) && u.starts_with("https://github.com/juandr404/syncroumbral/releases/download/")).then(|| u.to_string())
+                // El usuario de GitHub pasó de juandr404 a JDR404: GitHub puede devolver cualquiera de los dos (no distingue mayúsculas).
+                let ul = u.to_ascii_lowercase();
+                (n.ends_with(suffix)
+                    && (ul.starts_with("https://github.com/jdr404/syncroumbral/releases/download/")
+                        || ul.starts_with("https://github.com/juandr404/syncroumbral/releases/download/")))
+                .then(|| u.to_string())
             })
         };
         Some((tag.trim_start_matches('v').to_string(), find("windows-x64.exe")?, find("SHA256SUMS.txt")?, find("SHA256SUMS.txt.sig")?))
@@ -2108,7 +2123,7 @@ pub fn wire_extras(win: &AppWindow, ctx: &Arc<Ctx>) {
     let c = ctx.clone();
     win.on_check_updates(move || c.check_updates_now());
     win.on_open_link(|url| {
-        const OK: [&str; 2] = ["https://github.com/juandr404/syncroumbral", "https://www.syncroapp.dev/umbral"];
+        const OK: [&str; 2] = ["https://github.com/JDR404/syncroumbral", "https://www.syncroapp.dev/syncroumbral"];
         if OK.iter().any(|p| url.starts_with(p)) {
             let _ = std::process::Command::new("explorer").arg(url.as_str()).spawn();
         }

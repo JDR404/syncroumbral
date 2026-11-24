@@ -2,6 +2,18 @@
 
 ## Sin publicar
 
+## 0.7.6 — 2026-11-24
+
+### Qué ha cambiado
+- **Botón «Silenciar» en las llamadas**: si te llaman y no quieres contestar, pulsa «Silenciar» y el PC deja de sonar sin colgar. La llamada sigue sonando en el móvil y puedes contestarla o rechazarla después. La siguiente llamada vuelve a sonar normal.
+- **Los botones de arriba a la derecha explican para qué sirven**: al pasar el ratón por el del portapapeles («envía al móvil el texto que copiaste en el PC») y por el del sonido («hace sonar el móvil al máximo para que lo encuentres»), la explicación aparece bajo el título.
+- **El repositorio ahora es https://github.com/JDR404/syncroumbral** (la cuenta de GitHub cambió de nombre; los enlaces antiguos redirigen). Las actualizaciones automáticas aceptan ambos nombres. Si tienes la 0.7.5, no verá esta versión como actualización: instala el `setup.exe` de la 0.7.6 una vez a mano y desde ahí vuelve a actualizarse sola.
+- **La web ahora es https://www.syncroapp.dev/syncroumbral/** (antes `/umbral/`); los enlaces antiguos siguen funcionando. La página dice con claridad que Windows se bloquea al alejarte pero se abre con tu clave de Windows: SyncroUmbral no desbloquea Windows.
+
+### Detalles técnicos
+- `Core::silence_ring` y bandera `ring_silenced` (se reinicia cuando ya no hay llamada entrante); `Pill` con `hint` y `hovered`.
+- 62 pruebas (nueva: `silencing_a_call_stops_the_pc_ring_without_ending_it`). El móvil no cambia salvo el número de versión.
+
 ## 0.7.5 — 2026-11-23
 
 ### Qué ha cambiado

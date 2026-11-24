@@ -699,6 +699,30 @@ async fn incoming_call_rings_until_answered_and_never_hides_itself() {
     assert!(!h.core.is_ringing(), "colgada: deja de sonar");
 }
 
+/// «Silenciar»: el PC deja de sonar sin colgar, aunque el móvil siga mandando actualizaciones de la misma llamada, y la
+/// llamada siguiente vuelve a sonar.
+#[tokio::test]
+async fn silencing_a_call_stops_the_pc_ring_without_ending_it() {
+    let h = harness(Duration::from_secs(10)).await;
+    let (mut ws, _k) = connected(&h).await;
+    let call = json!({"t": "notif", "key": "c1", "pkg": "p", "app": "T", "title": "x", "text": "y", "quiet": false,
+        "call": true, "incoming": true, "actions": []});
+    say(&mut ws, call.clone()).await;
+    settle().await;
+    assert!(h.core.is_ringing());
+    h.core.silence_ring();
+    assert!(!h.core.is_ringing(), "silenciada: el PC deja de sonar");
+    say(&mut ws, call.clone()).await;
+    settle().await;
+    assert!(!h.core.is_ringing(), "una actualización de la misma llamada no la hace sonar otra vez");
+    say(&mut ws, json!({"t": "notif_gone", "key": "c1"})).await;
+    settle().await;
+    say(&mut ws, json!({"t": "notif", "key": "c2", "pkg": "p", "app": "T", "title": "x", "text": "y", "quiet": false,
+        "call": true, "incoming": true, "actions": []})).await;
+    settle().await;
+    assert!(h.core.is_ringing(), "la llamada siguiente vuelve a sonar");
+}
+
 /// Caso real: el móvil parpadea (se corta y se reconecta) mientras una llamada sigue sonando. Al cortarse se cierran la ventana
 /// y el timbre; al reconectar, la lista inicial trae la llamada todavía sonando y tiene que volver a mostrarse y sonar.
 #[tokio::test]

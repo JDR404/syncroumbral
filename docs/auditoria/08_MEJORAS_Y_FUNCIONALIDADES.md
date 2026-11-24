@@ -24,7 +24,7 @@ Solo se proponen cosas que resuelven un problema observado o una carencia frente
 ## Cómo funciona hoy la actualización automática (explicación)
 
 1. **Cuándo mira**: al arrancar y luego cada 6 horas (`start_update_check`, `glue.rs:1898`), o al pulsar «Buscar actualizaciones» en Acerca de.
-2. **Qué consulta**: la API pública de GitHub, la publicación más reciente de `juandr404/syncroumbral` (`releases?per_page=1`). Compara su etiqueta con la versión compilada dentro del exe (`CARGO_PKG_VERSION`). Si es mayor, muestra la franja «Hay una versión nueva… Actualizar ahora».
+2. **Qué consulta**: la API pública de GitHub, la publicación más reciente de `JDR404/syncroumbral` (`releases?per_page=1`). Compara su etiqueta con la versión compilada dentro del exe (`CARGO_PKG_VERSION`). Si es mayor, muestra la franja «Hay una versión nueva… Actualizar ahora».
 3. **Nada se instala sin tu clic**: solo al pulsar «Actualizar ahora» (`do_update`):
    - descarga `SHA256SUMS.txt` y `SHA256SUMS.txt.sig`;
    - comprueba la **firma ECDSA P-256** de esa lista con la clave pública incrustada en la app (`UPDATE_PUBKEY`); la privada solo existe en el PC del autor, así que ni alguien que robe la cuenta de GitHub puede publicar una actualización aceptada;

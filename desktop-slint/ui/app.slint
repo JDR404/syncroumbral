@@ -201,6 +201,7 @@ export component AppWindow inherits Window {
     callback notif-reply(string, int, string);
     callback call-answer(string);
     callback call-end(string);
+    callback call-silence();
     callback notif-action(string, int);
     callback clear-notifs();
     callback apps-refresh();
@@ -258,7 +259,9 @@ export component AppWindow inherits Window {
     property <length> scell-w: root.content-w / Math.max(1, Math.floor(root.content-w / 440px));
     property <string> page-title: root.page == 0 ? "Archivos" : root.page == 1 ? "Notificaciones" : root.page == 2 ? "Galería" : root.page == 3 ? "Llamadas"
         : root.page == 4 ? "Aplicaciones del móvil" : root.page == 5 ? "Mensajería" : root.page == 7 ? "Mensajes SMS" : "Móviles y ajustes";
-    property <string> page-sub: root.page == 0 ? "Copia archivos entre el PC y el móvil. También puedes arrastrarlos sobre esta ventana."
+    // Explicación del botón de la cabecera bajo el ratón (vacía si no hay ninguno).
+    property <string> hover-hint;
+    property <string> page-sub:root.page == 0 ? "Copia archivos entre el PC y el móvil. También puedes arrastrarlos sobre esta ventana."
         : root.page == 1 ? "Lo que llega al móvil, en tiempo real. Responde, cuelga llamadas o copia códigos de verificación."
         : root.page == 2 ? "Fotos y vídeos del móvil por álbum. Marca los que quieras y tráelos al PC."
         : root.page == 3 ? "Marca un número, llama a un contacto o devuelve una llamada. El audio sigue en el móvil."
@@ -388,13 +391,17 @@ export component AppWindow inherits Window {
                         horizontal-stretch: 1;
                         spacing: 2px;
                         Text { text: root.page-title; font-size: 26px; font-weight: 600; color: Theme.text; overflow: elide; }
-                        Text { text: root.page-sub; font-size: 13px; color: Theme.muted; overflow: elide; }
+                        Text { text: root.hover-hint != "" ? root.hover-hint : root.page-sub; font-size: 13px; color: root.hover-hint != "" ? Theme.primary : Theme.muted; overflow: elide; }
                     }
                     if !root.rail: HorizontalLayout {
                         spacing: 8px;
                         alignment: end;
-                        Pill { icon-d: Icons.clipboard; label: root.width >= 1250px ? "Portapapeles al móvil" : ""; kind: 1; y: 6px; clicked => { root.send-clipboard(); } }
-                        Pill { icon-d: Icons.sound; label: root.width >= 1250px ? (root.ringing ? "Parar" : "Hacer sonar") : ""; kind: root.ringing ? 5 : 1; y: 6px; clicked => { root.ring-phone(!root.ringing); } }
+                        Pill { icon-d: Icons.clipboard; label: root.width >= 1250px ? "Portapapeles al móvil" : "";
+                            hint: "Portapapeles al móvil: envía al móvil el texto que copiaste en el PC, para pegarlo allí.";
+                            kind: 1; y: 6px; clicked => { root.send-clipboard(); } hovered(h) => { root.hover-hint = h; } }
+                        Pill { icon-d: Icons.sound; label: root.width >= 1250px ? (root.ringing ? "Parar" : "Hacer sonar") : "";
+                            hint: root.ringing ? "Parar: deja de sonar el móvil." : "Hacer sonar: el móvil suena al máximo (hasta 60 s) para que lo encuentres.";
+                            kind: root.ringing ? 5 : 1; y: 6px; clicked => { root.ring-phone(!root.ringing); } hovered(h) => { root.hover-hint = h; } }
                     }
                 }
 
@@ -537,6 +544,7 @@ export component AppWindow inherits Window {
                                         reply(t) => { root.notif-reply(n.key, n.reply-index, t); }
                                         answer => { root.call-answer(n.key); }
                                         end => { root.call-end(n.key); }
+                                        silence => { root.call-silence(); }
                                         action(ai) => { root.notif-action(n.key, ai); }
                                         copy-code(code) => { root.copy-code(code); }
                                     }
@@ -1004,14 +1012,14 @@ export component AppWindow inherits Window {
                                 alignment: start;
                                 Pill { icon-d: Icons.refresh; label: "Buscar actualizaciones"; kind: 1; clicked => { root.check-updates(); } }
                                 Pill { icon-d: Icons.info; label: "Novedades de esta versión"; kind: 1; clicked => { root.show-whats-new(); } }
-                                Pill { icon-d: Icons.open-in-new; label: "Todas las versiones"; kind: 1; clicked => { root.open-link("https://github.com/juandr404/syncroumbral/releases"); } }
+                                Pill { icon-d: Icons.open-in-new; label: "Todas las versiones"; kind: 1; clicked => { root.open-link("https://github.com/JDR404/syncroumbral/releases"); } }
                             }
                             HorizontalLayout {
                                 spacing: 10px;
                                 alignment: start;
-                                Pill { icon-d: Icons.open-in-new; label: "Página web"; kind: 1; clicked => { root.open-link("https://www.syncroapp.dev/umbral/"); } }
-                                Pill { icon-d: Icons.open-in-new; label: "Código en GitHub"; kind: 1; clicked => { root.open-link("https://github.com/juandr404/syncroumbral"); } }
-                                Pill { icon-d: Icons.open-in-new; label: "Privacidad"; kind: 1; clicked => { root.open-link("https://www.syncroapp.dev/umbral/privacidad"); } }
+                                Pill { icon-d: Icons.open-in-new; label: "Página web"; kind: 1; clicked => { root.open-link("https://www.syncroapp.dev/syncroumbral/"); } }
+                                Pill { icon-d: Icons.open-in-new; label: "Código en GitHub"; kind: 1; clicked => { root.open-link("https://github.com/JDR404/syncroumbral"); } }
+                                Pill { icon-d: Icons.open-in-new; label: "Privacidad"; kind: 1; clicked => { root.open-link("https://www.syncroapp.dev/syncroumbral/privacidad"); } }
                             }
                         }
                     }
@@ -1140,7 +1148,7 @@ export component AppWindow inherits Window {
                 HorizontalLayout {
                     spacing: 10px;
                     alignment: end;
-                    Pill { icon-d: Icons.open-in-new; label: "Todas las versiones"; kind: 1; clicked => { root.open-link("https://github.com/juandr404/syncroumbral/releases"); } }
+                    Pill { icon-d: Icons.open-in-new; label: "Todas las versiones"; kind: 1; clicked => { root.open-link("https://github.com/JDR404/syncroumbral/releases"); } }
                     Pill { icon-d: Icons.check; label: "Entendido"; clicked => { root.whats-new = ""; root.updated-text = ""; } }
                 }
             }

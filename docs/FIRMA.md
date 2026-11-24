@@ -9,17 +9,17 @@
 | Compilación pública y repetible | `.github/workflows/build-windows.yml` (trabajo `build`) |
 | Qué se firma | `.signpath/artifact-configuration.xml` (solo `syncroumbral.exe`) |
 | Trabajo de firma, inactivo hasta configurar | `.github/workflows/build-windows.yml` (trabajo `firmar`) |
-| Política de firma | https://www.syncroapp.dev/umbral/#firma y README |
-| Política de privacidad | https://www.syncroapp.dev/umbral/privacidad |
+| Política de firma | https://www.syncroapp.dev/syncroumbral/#firma y README |
+| Política de privacidad | https://www.syncroapp.dev/syncroumbral/privacidad |
 
 ## Datos para la solicitud (https://signpath.org/foundation)
 | Campo | Valor |
 |---|---|
 | Project Name | SyncroUmbral |
-| Repository URL | https://github.com/juandr404/syncroumbral |
-| Homepage URL | https://www.syncroapp.dev/umbral/ |
-| Download URL | https://www.syncroapp.dev/umbral/ |
-| Privacy Policy URL | https://www.syncroapp.dev/umbral/privacidad |
+| Repository URL | https://github.com/JDR404/syncroumbral |
+| Homepage URL | https://www.syncroapp.dev/syncroumbral/ |
+| Download URL | https://www.syncroapp.dev/syncroumbral/ |
+| Privacy Policy URL | https://www.syncroapp.dev/syncroumbral/privacidad |
 | Wikipedia URL | (vacío) |
 | Build System | GitHub Actions |
 | Maintainer Type | Individual |

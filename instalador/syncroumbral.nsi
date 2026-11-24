@@ -24,8 +24,8 @@
 
 !define APPNAME   "SyncroUmbral"
 !define PUBLISHER "SyncroApp"
-!define WEB       "https://www.syncroapp.dev/umbral/"
-!define REPO      "https://github.com/juandr404/syncroumbral"
+!define WEB       "https://www.syncroapp.dev/syncroumbral/"
+!define REPO      "https://github.com/JDR404/syncroumbral"
 !define UNINSTKEY "Software\Microsoft\Windows\CurrentVersion\Uninstall\SyncroUmbral"
 !define RUNKEY    "Software\Microsoft\Windows\CurrentVersion\Run"
 !define APPROVED  "Software\Microsoft\Windows\CurrentVersion\Explorer\StartupApproved\Run"
