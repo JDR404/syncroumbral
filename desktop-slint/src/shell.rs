@@ -326,6 +326,9 @@ pub fn run() {
                     let ui = SlintUi(ctx2);
                     let now = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map_or(0, |d| d.as_millis() as u64);
                     c.push_notif(&ui, &serde_json::json!({"key":"k1","pkg":"com.whatsapp","app":"WhatsApp","title":"Ana","text":"¿Nos vemos a las 6?","when":now,"actions":[{"index":0,"title":"Responder","reply":true,"hint":"Responder a Ana"}]}));
+                    if std::env::args().any(|a| a == "--test-one") {
+                        return; // un solo aviso: el caso de la ventana recién creada
+                    }
                     c.push_notif(&ui, &serde_json::json!({"key":"k3","pkg":"com.google","app":"Mensajes","title":"Google","text":"G-482913 es tu código de verificación","when":now,"actions":[]}));
                     c.push_notif(&ui, &serde_json::json!({"key":"k2","pkg":"com.whatsapp","app":"WhatsApp","title":"Carlos","text":"Llamada de voz","when":now,"call":true,"incoming":true,"actions":[]}));
                 });

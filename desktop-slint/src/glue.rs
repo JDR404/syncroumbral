@@ -887,6 +887,18 @@ impl Ctx {
                 place_bottom_right(w, 400.0, height);
             }
         });
+        // La ventana real se crea en la siguiente vuelta del bucle de eventos y solo entonces se conoce la escala de la pantalla
+        // (125 %, 150 %...). Sin recolocar, el primer aviso quedaba cortado por la derecha y por abajo en pantallas escaladas.
+        for ms in [30u64, 150, 500] {
+            slint::Timer::single_shot(Duration::from_millis(ms), move || {
+                TOAST.with(|t| {
+                    if let Some(w) = t.borrow().as_ref() {
+                        let h = w.window().size().to_logical(w.window().scale_factor()).height;
+                        place_bottom_right(w, 400.0, if h > 0.0 { h } else { height });
+                    }
+                });
+            });
+        }
         let gen = self.toast_gen.fetch_add(1, Ordering::SeqCst) + 1;
         if !has_call {
             let me = self.clone();
@@ -935,6 +947,11 @@ impl Ctx {
     }
 
     fn notif_action(self: &Arc<Self>, key: String, idx: i32) {
+        // El aviso de versión nueva lo genera el PC: su botón actualiza aquí, no se envía al móvil.
+        if key == UPDATE_KEY {
+            self.do_update();
+            return;
+        }
         let me = self.clone();
         self.rt.spawn(async move {
             if let Err(e) = me.core.call("notif_action", json!({ "key": key, "index": idx })).await {
@@ -1106,6 +1123,19 @@ impl Ctx {
             me.ui(move |w| w.set_tools_text(text.into()));
         });
     }
+}
+
+const UPDATE_KEY: &str = "umbral-update";
+
+/// Aviso de versión nueva (ventana emergente y pestaña Notificaciones). `umbral.share` marca lo generado en el PC, que
+/// la sincronización con el móvil conserva.
+fn update_notice(ver: &str) -> Value {
+    let now = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map_or(0, |d| d.as_millis() as u64);
+    json!({
+        "key": UPDATE_KEY, "pkg": "umbral.share", "app": "SyncroUmbral", "title": "Hay una versión nueva",
+        "text": format!("SyncroUmbral {ver} está lista para instalar."), "when": now,
+        "actions": [{ "index": 0, "title": "Actualizar ahora", "reply": false }]
+    })
 }
 
 #[cfg(windows)]
@@ -1919,11 +1949,22 @@ impl Ctx {
     pub fn start_update_check(self: &Arc<Self>) {
         let me = self.clone();
         self.rt.spawn(async move {
+            // Última versión ya avisada: el aviso emergente sale una vez por versión mientras el programa siga abierto.
+            let mut notified = String::new();
             loop {
                 let m2 = me.clone();
                 let found = tokio::task::spawn_blocking(move || m2.check_update()).await.ok().flatten();
                 if let Some((ver, _, _, _)) = found {
-                    me.ui(move |w| w.set_update_text(format!("Hay una versión nueva de SyncroUmbral: {ver}").into()));
+                    let text = format!("Hay una versión nueva de SyncroUmbral: {ver}");
+                    me.ui(move |w| w.set_update_text(text.into()));
+                    if notified != ver {
+                        // Bloqueada, la aplicación no muestra avisos (y al bloquearse los borra): se espera a que esté abierta.
+                        while me.core.is_locked() {
+                            tokio::time::sleep(Duration::from_secs(20)).await;
+                        }
+                        me.core.push_notif(&me.sink(), &update_notice(&ver));
+                        notified = ver;
+                    }
                 }
                 tokio::time::sleep(Duration::from_secs(6 * 3600)).await;
             }

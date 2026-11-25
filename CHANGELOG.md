@@ -2,6 +2,15 @@
 
 ## Sin publicar
 
+## 0.7.7 — 2026-11-25
+
+### Qué ha cambiado
+- **Aviso cuando hay una versión nueva**: además de la franja dentro de la ventana, aparece un aviso emergente (aunque SyncroUmbral esté en la bandeja) con el botón «Actualizar ahora». Sale una vez por versión, cuando la aplicación está desbloqueada, y queda en Notificaciones. Se comprueba al abrir y cada 6 horas.
+- **El aviso emergente ya no sale cortado** en pantallas con escalado (125 %, 150 %, típico en portátiles): el primer aviso se colocaba antes de conocer la escala y se salía por la derecha y por abajo.
+
+### Detalles técnicos
+- `toast_on_ui` recoloca la ventana emergente cuando ya existe (30, 150 y 500 ms). El móvil no cambia salvo el número de versión.
+
 ## 0.7.6 — 2026-11-24
 
 ### Qué ha cambiado
