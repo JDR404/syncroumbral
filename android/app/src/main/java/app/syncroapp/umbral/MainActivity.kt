@@ -53,7 +53,7 @@ class MainActivity : Activity() {
         const val BAD_BG = 0xFF3A1B18.toInt()
         const val WARN = 0xFFFFD8A8.toInt()
         const val WARN_BG = 0xFF3A2A14.toInt()
-        const val REPO = "https://github.com/JDR404/syncroumbral"
+        const val SITE = "https://www.syncroapp.dev/syncroumbral/"
         const val REQ_PICK = 10
         val PAGES = listOf("Inicio", "Permisos", "Ajustes", "Info")
     }
@@ -75,7 +75,11 @@ class MainActivity : Activity() {
     private lateinit var modeBasic: Button
     private lateinit var modeAdvanced: Button
     private lateinit var modeText: TextView
+    private lateinit var wizardButton: Button
     private val rows = ArrayList<PermRow>()
+    private val wizard = ArrayDeque<PermRow>()
+    private var wizardTotal = 0
+    private var waiting: PermRow? = null
     private val pages = ArrayList<View>()
     private val navButtons = ArrayList<TextView>()
     private var page = 0
@@ -87,11 +91,16 @@ class MainActivity : Activity() {
         }
     }
 
-    /** Una fila de la lista de permisos. */
-    private class PermRow(val title: String, val desc: String, val hint: String?, val granted: () -> Boolean, val ask: () -> Unit) {
+    /**
+     * Una fila de la lista de permisos. [disclosure] es el aviso que se acepta antes de pedirlo; [restricted] marca los que
+     * Android bloquea («ajustes restringidos») cuando la app se instaló desde un archivo APK.
+     */
+    private class PermRow(
+        val title: String, val desc: String, val disclosure: String, val restricted: Boolean,
+        val granted: () -> Boolean, val ask: () -> Unit,
+    ) {
         lateinit var pill: TextView
         lateinit var button: Button
-        lateinit var hintView: TextView
     }
 
     private fun dp(v: Int) = (v * resources.displayMetrics.density).toInt()
@@ -203,12 +212,9 @@ class MainActivity : Activity() {
         outer.requestApplyInsets()
         show(savedInstanceState?.getInt("page") ?: 0)
 
-        if (Build.VERSION.SDK_INT >= 33 &&
-            checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
-        ) {
-            requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), 1)
-        }
         if (store.hasPc) LinkService.start(this)
+        // Primer arranque (o actualización desde una versión sin este aviso): se explica qué datos se usan antes de pedir nada.
+        if (!store.consent && savedInstanceState == null) withConsent { show(1) }
         handleIntent(intent)
     }
 
@@ -261,7 +267,7 @@ class MainActivity : Activity() {
         // Sin PC vinculado: vincular es lo único que importa
         pairCard = card()
         pairCard.addView(text("Vincular con el PC", 17f, TEXT, true))
-        pairCard.addView(text("En el PC: Móviles y ajustes, \"Mostrar QR de vinculación\". ¿No tienes SyncroUmbral en el PC? Mira la sección Info.", 13f, MUTED)
+        pairCard.addView(text("En el PC: Móviles y ajustes, \"Generar código\". ¿No tienes SyncroUmbral en el PC? Mira la sección Info.", 13f, MUTED)
             .apply { setPadding(0, dp(2), 0, dp(10)) })
         addPairingControls(pairCard)
         c.addView(pairCard)
@@ -320,6 +326,8 @@ class MainActivity : Activity() {
         permCard.addView(text("Permisos", 17f, TEXT, true))
         permSummary = text("", 13f, MUTED).apply { setPadding(0, dp(2), 0, dp(6)) }
         permCard.addView(permSummary)
+        wizardButton = pill("Configurar paso a paso") { startWizard() }
+        permCard.addView(wizardButton, lp(bottom = 4))
         for (r in rows) permCard.addView(buildRow(r))
         c.addView(permCard)
         return c
@@ -328,30 +336,29 @@ class MainActivity : Activity() {
     /** Los permisos que SyncroUmbral usa, qué hace cada uno y cómo se concede. */
     private fun buildRows() {
         rows += PermRow(
-            "Acceso a los archivos", "Ver y copiar los archivos del móvil desde el PC.", null,
+            "Acceso a los archivos", "Ver y copiar los archivos del móvil desde el PC.", Disclosures.FILES, false,
             { FileOps.hasAccess() }, { askFileAccess() }
         )
         rows += PermRow(
-            "Acceso a las notificaciones", "Mostrar las notificaciones en el PC y responderlas.",
-            "Si aparece atenuado: Ajustes, Aplicaciones, SyncroUmbral, menú de tres puntos, \"Permitir ajustes restringidos\".",
+            "Acceso a las notificaciones", "Mostrar las notificaciones en el PC y responderlas.", Disclosures.NOTIFICATIONS, true,
             { NotificationManagerCompat.getEnabledListenerPackages(this).contains(packageName) }, { askNotifAccess() }
         )
         rows += PermRow(
-            "Avisos de la app", "Mostrar el aviso de que SyncroUmbral está conectado.", null,
+            "Avisos de la app", "Mostrar el aviso de que SyncroUmbral está conectado.", Disclosures.APP_NOTICES, false,
             { Build.VERSION.SDK_INT < 33 || checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED },
             { requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), 1) }
         )
         rows += PermRow(
-            "Contestar llamadas", "Contestar y colgar llamadas normales desde el PC.", null,
+            "Contestar llamadas", "Contestar y colgar llamadas normales desde el PC.", Disclosures.ANSWER_CALLS, false,
             { CallOps.canAnswerPhone(this) }, { askAnswerCalls() }
         )
         rows += PermRow(
-            "Contactos", "Ver tus contactos en el PC para llamarles (opcional).", null,
+            "Contactos", "Ver tus contactos en el PC para llamarles (opcional).", Disclosures.CONTACTS, false,
             { checkSelfPermission(Manifest.permission.READ_CONTACTS) == PackageManager.PERMISSION_GRANTED },
             { requestPermissions(arrayOf(Manifest.permission.READ_CONTACTS), 4) }
         )
         rows += PermRow(
-            "Llamar y registro de llamadas", "Marcar desde el PC y ver el historial de llamadas (opcional).", null,
+            "Llamar y registro de llamadas", "Marcar desde el PC y ver el historial de llamadas (opcional).", Disclosures.CALLS, true,
             {
                 checkSelfPermission(Manifest.permission.CALL_PHONE) == PackageManager.PERMISSION_GRANTED &&
                     checkSelfPermission(Manifest.permission.READ_CALL_LOG) == PackageManager.PERMISSION_GRANTED
@@ -359,7 +366,7 @@ class MainActivity : Activity() {
             { requestPermissions(arrayOf(Manifest.permission.CALL_PHONE, Manifest.permission.READ_CALL_LOG), 5) }
         )
         rows += PermRow(
-            "Mensajes SMS", "Leer y enviar SMS desde el PC (opcional; no incluye MMS ni RCS).", null,
+            "Mensajes SMS", "Leer y enviar SMS desde el PC (opcional; no incluye MMS ni RCS).", Disclosures.SMS, true,
             {
                 checkSelfPermission(Manifest.permission.READ_SMS) == PackageManager.PERMISSION_GRANTED &&
                     checkSelfPermission(Manifest.permission.SEND_SMS) == PackageManager.PERMISSION_GRANTED
@@ -367,13 +374,101 @@ class MainActivity : Activity() {
             { requestPermissions(arrayOf(Manifest.permission.READ_SMS, Manifest.permission.SEND_SMS), 6) }
         )
         rows += PermRow(
-            "Mostrar sobre otras apps", "Necesario para contestar llamadas de WhatsApp y similares desde el PC.", null,
+            "Mostrar sobre otras apps", "Necesario para contestar llamadas de WhatsApp y similares desde el PC.", Disclosures.OVERLAY, true,
             { CallOps.canOverlay(this) }, { askOverlay() }
         )
         rows += PermRow(
-            "Uso en segundo plano", "Que Android no corte la conexión al ahorrar batería.", null,
-            { (getSystemService(POWER_SERVICE) as PowerManager).isIgnoringBatteryOptimizations(packageName) }, { ignoreBattery() }
+            "Uso en segundo plano", "Que Android no corte la conexión al ahorrar batería.", Disclosures.BATTERY, false,
+            { (getSystemService(POWER_SERVICE) as PowerManager).isIgnoringBatteryOptimizations(packageName) }, { openAppSettings() }
         )
+    }
+
+    // ------------------------------------------------- Consentimiento y asistente de permisos
+
+    /** Aviso general de datos: sin aceptarlo no se vincula ningún PC ni se pide ningún permiso. */
+    private fun withConsent(then: () -> Unit) {
+        if (store.consent) {
+            then()
+            return
+        }
+        dialog("Qué datos usa SyncroUmbral", Disclosures.GENERAL)
+            .setPositiveButton("Aceptar") { _, _ -> store.consent = true; then() }
+            .setNegativeButton("Ahora no") { _, _ -> endWizard() }
+            .setNeutralButton("Privacidad") { _, _ -> openPrivacy() }
+            .show()
+    }
+
+    /** No se cierra al tocar fuera ni con «atrás»: solo cuenta lo que el usuario elige con un botón. */
+    private fun dialog(title: String, message: String) =
+        AlertDialog.Builder(this).setTitle(title).setMessage(message).setCancelable(false)
+
+    /** Aviso destacado del permiso y, solo si se acepta, la petición a Android. */
+    private fun disclose(r: PermRow, step: String?, onSkip: (() -> Unit)?) = withConsent {
+        val d = dialog(if (step == null) r.title else "$step · ${r.title}", r.disclosure)
+            .setPositiveButton("Aceptar y permitir") { _, _ -> waiting = r; r.ask() }
+            .setNegativeButton(if (onSkip == null) "Ahora no" else "Omitir") { _, _ -> onSkip?.invoke() }
+        if (onSkip != null) d.setNeutralButton("Salir") { _, _ -> endWizard() }
+        d.show()
+    }
+
+    private fun startWizard() = withConsent {
+        endWizard()
+        wizard.addAll(rows.filter { !it.granted() })
+        wizardTotal = wizard.size
+        nextStep()
+    }
+
+    private fun nextStep() {
+        val r = wizard.removeFirstOrNull()
+        if (r == null) {
+            endWizard()
+            toast("Configuración de permisos terminada")
+            return
+        }
+        if (r.granted()) {
+            nextStep()
+            return
+        }
+        disclose(r, "Paso ${wizardTotal - wizard.size} de $wizardTotal") { nextStep() }
+    }
+
+    private fun endWizard() {
+        wizard.clear()
+        wizardTotal = 0
+        waiting = null
+    }
+
+    /** Al volver de la pantalla o del diálogo de Android: si se concedió, siguiente paso; si no, se explica qué hacer. */
+    private fun checkWaiting() {
+        val r = waiting ?: return
+        waiting = null
+        if (r.granted()) {
+            if (wizardTotal > 0) nextStep()
+            return
+        }
+        val help = if (r.restricted && Build.VERSION.SDK_INT >= 33)
+            "Si la opción aparece atenuada o Android dice que es un ajuste restringido (pasa al instalar desde un archivo APK):\n\n" +
+                "1. Toque «Información de la app».\n2. Abra el menú de tres puntos (arriba a la derecha).\n" +
+                "3. Elija «Permitir ajustes restringidos».\n4. Vuelva aquí y toque «Intentar de nuevo»."
+        else
+            "Android no lo concedió. Puede intentarlo de nuevo o activarlo en «Información de la app», en Permisos."
+        dialog("Todavía falta: ${r.title}", help)
+            .setPositiveButton("Intentar de nuevo") { _, _ -> waiting = r; r.ask() }
+            .setNeutralButton("Información de la app") { _, _ -> waiting = r; openAppSettings() }
+            .setNegativeButton(if (wizardTotal > 0) "Omitir" else "Cerrar") { _, _ -> if (wizardTotal > 0) nextStep() }
+            .show()
+    }
+
+    private fun openAppSettings() {
+        startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:$packageName")))
+    }
+
+    private fun openPrivacy() {
+        try {
+            startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(Disclosures.PRIVACY_URL)))
+        } catch (_: Exception) {
+            toast(Disclosures.PRIVACY_URL)
+        }
     }
 
     private fun buildRow(r: PermRow): View {
@@ -389,9 +484,7 @@ class MainActivity : Activity() {
         top.addView(r.pill)
         box.addView(top)
         box.addView(text(r.desc, 12f, MUTED).apply { setPadding(0, dp(2), 0, 0) })
-        r.hintView = text(r.hint.orEmpty(), 12f, WARN).apply { setPadding(0, dp(4), 0, 0) }
-        box.addView(r.hintView)
-        r.button = pill("Permitir") { r.ask() }
+        r.button = pill("Permitir") { endWizard(); disclose(r, null, null) }
         box.addView(r.button, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT)
             .apply { topMargin = dp(8) })
         return box
@@ -467,27 +560,35 @@ class MainActivity : Activity() {
         val what = card()
         what.addView(text("Qué es SyncroUmbral", 17f, TEXT, true))
         what.addView(text(
-            "Este móvil es la llave de la aplicación SyncroUmbral del PC (no de Windows): mientras esté en tu red, la aplicación " +
-                "se mantiene abierta; si te alejas, se bloquea y solo abre con la clave de respaldo. No bloquea la sesión de Windows. " +
-                "Además muestra aquí tus notificaciones en el PC (con respuesta), " +
-                "contesta llamadas, comparte archivos y portapapeles y te deja ver los archivos del móvil desde el PC.",
+            "Este móvil es la llave de SyncroUmbral en el PC: mientras esté en su red, la aplicación se mantiene abierta; si se " +
+                "aleja, se bloquea (y, si lo activa en el PC, también Windows, que se abre con su clave). Además muestra en el PC " +
+                "sus notificaciones (con respuesta), contesta llamadas, comparte archivos y portapapeles y deja ver los archivos del móvil.",
             13f, MUTED
         ).apply { setPadding(0, dp(4), 0, 0) })
         c.addView(what)
 
+        val privacy = card()
+        privacy.addView(text("Privacidad", 17f, TEXT, true))
+        privacy.addView(text("Todo va cifrado por su red local, solo a su PC. Sin servidores, cuentas ni telemetría.", 13f, MUTED)
+            .apply { setPadding(0, dp(4), 0, dp(10)) })
+        privacy.addView(pill("Política de privacidad", filled = false) { openPrivacy() }, lp(bottom = 8))
+        privacy.addView(pill("Qué datos usa la app", filled = false) {
+            dialog("Qué datos usa SyncroUmbral", Disclosures.GENERAL).setPositiveButton("Entendido", null).show()
+        })
+        c.addView(privacy)
+
         val download = card()
         download.addView(text("Instalar el programa del PC", 17f, TEXT, true))
         download.addView(text(
-            "Necesitas la parte de Windows (10 u 11, 64 bits). El instalador se llama SyncroUmbral_0.2.0_x64-setup.exe y está en la " +
-                "carpeta de entrega junto a este APK, y en el repositorio privado del proyecto (cuenta JDR404):\n$REPO\n\n" +
-                "1. Instálalo en el PC y ábrelo (se queda en la bandeja y arranca con Windows).\n" +
-                "2. Crea la clave de respaldo.\n" +
-                "3. En \"Móviles y ajustes\" pulsa \"Mostrar QR de vinculación\".\n" +
-                "4. Aquí, en Inicio, pulsa \"Escanear QR del PC\" y confirma que la huella coincide.",
+            "Necesita la parte de Windows (10 u 11, 64 bits). Descargue el instalador desde la página del proyecto:\n$SITE\n\n" +
+                "1. Instálelo en el PC y ábralo (se queda en la bandeja y arranca con Windows).\n" +
+                "2. Cree la clave de respaldo.\n" +
+                "3. En «Móviles y ajustes» pulse «Generar código».\n" +
+                "4. Aquí, en Inicio, pulse «Escanear QR del PC» y confirme que la huella coincide.",
             13f, MUTED
         ).apply { setPadding(0, dp(4), 0, dp(10)) })
-        download.addView(pill("Copiar enlace del repositorio", filled = false) {
-            (getSystemService(CLIPBOARD_SERVICE) as ClipboardManager).setPrimaryClip(ClipData.newPlainText("SyncroUmbral", REPO))
+        download.addView(pill("Copiar enlace de la página", filled = false) {
+            (getSystemService(CLIPBOARD_SERVICE) as ClipboardManager).setPrimaryClip(ClipData.newPlainText("SyncroUmbral", SITE))
             toast("Enlace copiado")
         })
         c.addView(download)
@@ -600,6 +701,8 @@ class MainActivity : Activity() {
     override fun onResume() {
         super.onResume()
         handler.post(refresh)
+        // Un momento para que Android actualice el estado del permiso recién cambiado.
+        if (waiting != null) handler.postDelayed({ if (!isFinishing) checkWaiting() }, 500)
     }
 
     override fun onPause() {
@@ -634,11 +737,11 @@ class MainActivity : Activity() {
             r.pill.setTextColor(if (ok) OK else BAD)
             r.pill.background = shape(if (ok) OK_BG else BAD_BG, 14)
             r.button.visibility = if (ok) View.GONE else View.VISIBLE
-            r.hintView.visibility = if (!ok && r.hint != null) View.VISIBLE else View.GONE
         }
         val missing = rows.size - done
         permSummary.text = if (missing == 0) "Todos los permisos concedidos." else "$done de ${rows.size} concedidos. Pulsa \"Permitir\" en los que faltan."
         permSummary.setTextColor(if (missing == 0) OK else MUTED)
+        wizardButton.visibility = if (missing == 0) View.GONE else View.VISIBLE
         navButtons[1].text = if (missing == 0) "Permisos" else "Permisos ($missing)"
         permAlert.visibility = if (missing == 0) View.GONE else View.VISIBLE
         permAlertText.text = if (missing == 1) "Falta 1 permiso." else "Faltan $missing permisos."
@@ -686,7 +789,9 @@ class MainActivity : Activity() {
      * Valida lo leído del QR y pide confirmación mostrando a qué PC se va a vincular: un QR ajeno (un cartel, una imagen
      * recibida) no debe poder vincular el móvil sin que el usuario lo vea. La huella corta se compara con la del PC.
      */
-    private fun pair(payload: String) {
+    private fun pair(payload: String) = withConsent { confirmPair(payload) }
+
+    private fun confirmPair(payload: String) {
         val p = try {
             Store.parsePairing(payload)
         } catch (e: Exception) {
@@ -744,12 +849,6 @@ class MainActivity : Activity() {
                 arrayOf(Manifest.permission.READ_EXTERNAL_STORAGE, Manifest.permission.WRITE_EXTERNAL_STORAGE), 2
             )
         }
-    }
-
-    private fun ignoreBattery() {
-        startActivity(
-            Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS, Uri.parse("package:$packageName"))
-        )
     }
 
     private fun toast(msg: String) = Toast.makeText(this, msg, Toast.LENGTH_LONG).show()

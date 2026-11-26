@@ -2,6 +2,16 @@
 
 ## Sin publicar
 
+### Qué ha cambiado
+- **El móvil explica qué datos usa antes de pedirlos**: al abrir la app y antes de cada permiso aparece un aviso con qué se transmite, para qué y que va solo a tu PC, con la opción de no aceptar.
+- **«Configurar paso a paso»** en Permisos: recorre los permisos que faltan y, si Android bloquea uno por haber instalado desde un APK, explica cómo desbloquearlo y abre la pantalla.
+- La sección Info tiene la política de privacidad y las instrucciones actualizadas.
+- La lista de aplicaciones del PC muestra las que tienen icono en el móvil.
+
+### Detalles técnicos
+- Preparación para Google Play (ver `docs/PLAY.md`): `targetSdk` 36, Android Gradle Plugin 8.9.1 y Gradle 8.11.1, servicio en primer plano `connectedDevice`, `<queries>` en lugar de `QUERY_ALL_PACKAGES`, sin `REQUEST_IGNORE_BATTERY_OPTIMIZATIONS`, telefonía opcional, se genera el `.aab`.
+- Corregido: «Hacer sonar» fallaba en Android 8 (`setLooping` es de Android 9).
+
 ## 0.7.7 — 2026-11-25
 
 ### Qué ha cambiado
