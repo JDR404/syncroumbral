@@ -466,7 +466,7 @@ export component AppWindow inherits Window {
                             alignment: center;
                             spacing: 6px;
                             Pill { icon-d: Icons.send; label: "Enviar al móvil"; min-width: 140px; clicked => { root.send-to-phone(); } }
-                            Text { text: "a: " + (root.phone-path == "" ? "raíz" : root.phone-path); color: Theme.muted; font-size: 11px; wrap: word-wrap; horizontal-alignment: center; }
+                            Text { text: "a: " + (root.phone-path == "" || root.phone-path == "Almacenamiento interno" ? "Descargas/SyncroUmbral" : root.phone-path); color: Theme.muted; font-size: 11px; wrap: word-wrap; horizontal-alignment: center; }
                             Rectangle { height: 14px; }
                             Pill { icon-d: Icons.download; label: "Traer al PC"; min-width: 140px; kind: 1; clicked => { root.bring-to-pc(); } }
                             Text { text: "a: " + root.pc-path; color: Theme.muted; font-size: 11px; wrap: word-wrap; horizontal-alignment: center; }

@@ -2,7 +2,14 @@
 
 ## Sin publicar
 
+## 0.7.8 — 2026-11-27
+
 ### Qué ha cambiado
+- **Notificaciones que dejaban de llegar** (visto en un Xiaomi): si Android apaga el lector de notificaciones, la app ahora pide reactivarlo sola y, si no puede, lo avisa en Inicio con un botón «Reactivar».
+- **La conexión vuelve sola después de actualizar la app del móvil**; antes había que abrirla.
+- **Xiaomi, Redmi y POCO**: nuevo paso «Inicio automático» en Permisos, que abre la pantalla del sistema. Sin él, el teléfono cierra la app aunque tenga todos los permisos.
+- **Los archivos van a Descargas/SyncroUmbral**: lo enviado del PC al móvil cae ahí (si no has abierto otra carpeta en el panel «Móvil»), y lo que traes al PC, en Descargas\SyncroUmbral.
+- **Ventana de «Enviar al PC» nueva** y avisos de la app con el mismo diseño.
 - **El móvil explica qué datos usa antes de pedirlos**: al abrir la app y antes de cada permiso aparece un aviso con qué se transmite, para qué y que va solo a tu PC, con la opción de no aceptar.
 - **«Configurar paso a paso»** en Permisos: recorre los permisos que faltan y, si Android bloquea uno por haber instalado desde un APK, explica cómo desbloquearlo y abre la pantalla.
 - La sección Info tiene la política de privacidad y las instrucciones actualizadas.

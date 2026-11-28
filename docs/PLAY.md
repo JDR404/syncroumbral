@@ -8,11 +8,11 @@ Play Console antes de enviar. **Nada de esto garantiza la aprobación**: la deci
 | Requisito | Estado |
 |---|---|
 | `targetSdk` 36 (Android 16) y paquete `.aab` | Hecho (`gradlew bundleRelease`) |
-| Aviso destacado y consentimiento antes de cada permiso | Hecho (`Disclosures.kt`), **sin probar en un móvil** |
+| Aviso destacado y consentimiento antes de cada permiso | Hecho (`Disclosures.kt`); el aviso general visto en un Pixel, el resto sin probar |
 | Asistente de permisos y ayuda de «ajustes restringidos» | Hecho, **sin probar en un móvil** |
 | Política de privacidad en la app y en la web | Hecho |
 | Sin `QUERY_ALL_PACKAGES` ni petición directa de ignorar batería | Hecho |
-| Servicio en primer plano `connectedDevice` | Hecho, **sin probar en un móvil** |
+| Servicio en primer plano `connectedDevice` | Hecho y probado en un Pixel 9 Pro (Android 17) |
 | Cuenta de desarrollador, identidad y pago (25 USD) | Pendiente (solo el autor) |
 | Prueba cerrada: 12 personas, 14 días seguidos (cuentas personales) | Pendiente |
 | Video de declaración, capturas, icono 512 px y gráfico 1024×500 | Pendiente |

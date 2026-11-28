@@ -42,13 +42,7 @@ class ShareActivity : Activity() {
                     finish()
                     return@post
                 }
-                android.app.AlertDialog.Builder(this)
-                    .setTitle("Enviar al PC ${Store(this).pcName}")
-                    .setMessage(summary)
-                    .setPositiveButton("Enviar") { _, _ -> send(intent) }
-                    .setNegativeButton("Cancelar") { _, _ -> finish() }
-                    .setOnCancelListener { finish() }
-                    .show()
+                ShareSheet.show(this, "Enviar a ${Store(this).pcName}", summary, { send(intent) }, { finish() })
             }
         }.start()
     }

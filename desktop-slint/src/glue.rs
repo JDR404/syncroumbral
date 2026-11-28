@@ -1125,6 +1125,45 @@ impl Ctx {
     }
 }
 
+/// Carpeta del móvil donde cae lo enviado cuando el panel «Móvil» está en la raíz.
+const PHONE_INBOX: &str = "Download/SyncroUmbral";
+
+/// Destino en el móvil: la carpeta abierta; en la raíz del almacenamiento, `Descargas/SyncroUmbral`.
+fn phone_destination(open: &str) -> String {
+    if open.trim_matches('/').is_empty() { PHONE_INBOX.to_string() } else { open.to_string() }
+}
+
+fn phone_label(dest: &str) -> String {
+    if dest == PHONE_INBOX { "Descargas del móvil, carpeta SyncroUmbral".to_string() } else { dest.to_string() }
+}
+
+/// Destino en el PC: la carpeta abierta; en la carpeta del usuario (donde arranca el panel), `Descargas\SyncroUmbral`.
+fn pc_destination(open: &str) -> String {
+    let home = std::env::var("USERPROFILE").unwrap_or_default();
+    let at_home = !home.is_empty() && open.trim_end_matches(['\\', '/']).eq_ignore_ascii_case(home.trim_end_matches(['\\', '/']));
+    if !open.is_empty() && !at_home {
+        return open.to_string();
+    }
+    let inbox = crate::share::inbox_dir();
+    let _ = std::fs::create_dir_all(&inbox);
+    inbox.to_string_lossy().into_owned()
+}
+
+#[cfg(test)]
+mod destination_tests {
+    use super::*;
+
+    #[test]
+    fn files_go_to_downloads_unless_a_folder_is_open() {
+        assert_eq!(phone_destination(""), "Download/SyncroUmbral");
+        assert_eq!(phone_destination("DCIM/Camera"), "DCIM/Camera");
+        std::env::var("USERPROFILE").ok().map(|home| {
+            assert!(pc_destination(&home).ends_with("SyncroUmbral"));
+        });
+        assert_eq!(pc_destination("D:\\Fotos"), "D:\\Fotos");
+    }
+}
+
 const UPDATE_KEY: &str = "umbral-update";
 
 /// Aviso de versión nueva (ventana emergente y pestaña Notificaciones). `umbral.share` marca lo generado en el PC, que
@@ -1251,7 +1290,7 @@ pub fn wire(win: &AppWindow, ctx: &Arc<Ctx>) {
             c.status("Marca primero lo que quieras enviar en Este PC");
             return;
         }
-        let remote = c.files.lock().unwrap().phone.path.clone();
+        let remote = phone_destination(&c.files.lock().unwrap().phone.path);
         c.xfer_kind.store(1, Ordering::SeqCst);
         let (id, core) = (c.core.next_job_id(), c.core.clone());
         c.rt.spawn(crate::transfer::run_upload(c.sink(), core, id, items, remote));
@@ -1259,7 +1298,7 @@ pub fn wire(win: &AppWindow, ctx: &Arc<Ctx>) {
     let c = ctx.clone();
     win.on_bring_to_pc(move || {
         let items = c.selected(true);
-        let local = c.files.lock().unwrap().pc.path.clone();
+        let local = pc_destination(&c.files.lock().unwrap().pc.path);
         if items.is_empty() {
             c.status("Marca primero lo que quieras traer en Móvil");
             return;
@@ -1716,8 +1755,8 @@ impl Ctx {
             Ok(i) if !i.is_empty() => i,
             _ => return,
         };
-        let remote = self.files.lock().unwrap().phone.path.clone();
-        self.status(format!("Enviando {} elemento(s) al móvil", items.len()));
+        let remote = phone_destination(&self.files.lock().unwrap().phone.path);
+        self.status(format!("Enviando {} elemento(s) a {}", items.len(), phone_label(&remote)));
         self.xfer_kind.store(1, Ordering::SeqCst);
         let (id, core) = (self.core.next_job_id(), self.core.clone());
         self.rt.spawn(crate::transfer::run_upload(self.sink(), core, id, items, remote));

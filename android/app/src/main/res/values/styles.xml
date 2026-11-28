@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Paleta de la app; los diálogos del sistema (avisos y confirmaciones) la usan también. -->
+    <style name="Umbral" parent="@android:style/Theme.Material.NoActionBar">
+        <item name="android:colorAccent">#FF4FD8EB</item>
+        <item name="android:windowBackground">@android:color/black</item>
+        <item name="android:alertDialogTheme">@style/UmbralDialog</item>
+    </style>
+    <style name="UmbralDialog" parent="@android:style/Theme.Material.Dialog.Alert">
+        <item name="android:windowBackground">@drawable/dialog_bg</item>
+        <item name="android:colorAccent">#FF4FD8EB</item>
+        <item name="android:textColorPrimary">#FFDEE3E5</item>
+    </style>
+</resources>

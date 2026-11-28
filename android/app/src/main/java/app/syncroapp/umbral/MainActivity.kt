@@ -55,6 +55,7 @@ class MainActivity : Activity() {
         const val WARN_BG = 0xFF3A2A14.toInt()
         const val SITE = "https://www.syncroapp.dev/syncroumbral/"
         const val REQ_PICK = 10
+        const val AUTOSTART = "Inicio automático"
         val PAGES = listOf("Inicio", "Permisos", "Ajustes", "Info")
     }
 
@@ -76,6 +77,8 @@ class MainActivity : Activity() {
     private lateinit var modeAdvanced: Button
     private lateinit var modeText: TextView
     private lateinit var wizardButton: Button
+    private lateinit var notifAlert: LinearLayout
+    private var listenerDownSince = 0L
     private val rows = ArrayList<PermRow>()
     private val wizard = ArrayDeque<PermRow>()
     private var wizardTotal = 0
@@ -257,6 +260,14 @@ class MainActivity : Activity() {
             render()
         }.also { a11yText = it.getChildAt(0) as TextView }
         c.addView(a11yAlert)
+        notifAlert = alertRow("Reactivar") {
+            NotifService.ensureBound(this)
+            toast("Pidiendo a Android que reactive las notificaciones…")
+        }.also {
+            (it.getChildAt(0) as TextView).text =
+                "El lector de notificaciones está detenido: al PC no le llega ninguna. Si no se reactiva, quite y vuelva a dar el acceso a las notificaciones."
+        }
+        c.addView(notifAlert)
         batteryAlert = text("", 13f, WARN).apply {
             background = shape(WARN_BG, 20)
             setPadding(dp(16), dp(12), dp(16), dp(12))
@@ -381,6 +392,22 @@ class MainActivity : Activity() {
             "Uso en segundo plano", "Que Android no corte la conexión al ahorrar batería.", Disclosures.BATTERY, false,
             { (getSystemService(POWER_SERVICE) as PowerManager).isIgnoringBatteryOptimizations(packageName) }, { openAppSettings() }
         )
+        if (isXiaomi()) {
+            rows += PermRow(
+                AUTOSTART, "Imprescindible en este teléfono para que no se cierre.", Disclosures.AUTOSTART, false,
+                { store.autostartDone }, { openAutostart() }
+            )
+        }
+    }
+
+    private fun isXiaomi() = Build.MANUFACTURER.lowercase() in setOf("xiaomi", "redmi", "poco")
+
+    private fun openAutostart() {
+        try {
+            startActivity(Intent().setClassName("com.miui.securitycenter", "com.miui.permcenter.autostart.AutoStartManagementActivity"))
+        } catch (_: Exception) {
+            openAppSettings()
+        }
     }
 
     // ------------------------------------------------- Consentimiento y asistente de permisos
@@ -442,6 +469,17 @@ class MainActivity : Activity() {
     private fun checkWaiting() {
         val r = waiting ?: return
         waiting = null
+        if (r.title == AUTOSTART && !r.granted()) {
+            dialog(AUTOSTART, "¿Activó «Inicio automático» para SyncroUmbral?")
+                .setPositiveButton("Sí, quedó activado") { _, _ ->
+                    store.autostartDone = true
+                    if (wizardTotal > 0) nextStep()
+                }
+                .setNeutralButton("Abrir otra vez") { _, _ -> waiting = r; r.ask() }
+                .setNegativeButton("Todavía no") { _, _ -> if (wizardTotal > 0) nextStep() }
+                .show()
+            return
+        }
         if (r.granted()) {
             if (wizardTotal > 0) nextStep()
             return
@@ -752,6 +790,15 @@ class MainActivity : Activity() {
         modeText.text = if (store.advanced)
             "Avanzado: además abre apps del móvil en el PC y permite detenerlas o desinstalarlas (necesita depuración inalámbrica)."
         else "Básico: todo funciona sin depuración. Las acciones con adb en el PC están apagadas."
+
+        // Se avisa solo si lleva unos segundos caído (al abrir la app tarda un instante en conectarse).
+        val down = NotifService.instance == null && NotificationManagerCompat.getEnabledListenerPackages(this).contains(packageName)
+        if (!down) listenerDownSince = 0L
+        else if (listenerDownSince == 0L) {
+            listenerDownSince = System.currentTimeMillis()
+            NotifService.ensureBound(this)
+        }
+        notifAlert.visibility = if (down && System.currentTimeMillis() - listenerDownSince > 4000) View.VISIBLE else View.GONE
 
         val battery = batteryWarning()
         batteryAlert.visibility = if (battery.isEmpty()) View.GONE else View.VISIBLE

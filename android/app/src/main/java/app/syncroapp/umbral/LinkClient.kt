@@ -144,6 +144,8 @@ class LinkClient(private val ctx: Context) {
                                 webSocket.send(JSONObject().put("t", "hb").put("seq", seq++).toString())
                             }, 0, every, TimeUnit.MILLISECONDS)
                             it.scheduleAtFixedRate({ Link.sendStatus(ctx) }, 1, 30, TimeUnit.SECONDS)
+                            // Con el PC conectado, el lector de notificaciones tiene que estar activo.
+                            it.scheduleAtFixedRate({ runCatching { NotifService.ensureBound(ctx) } }, 0, 10, TimeUnit.SECONDS)
                         }
                     }
                     "req" -> io.execute { answer(webSocket, msg) }

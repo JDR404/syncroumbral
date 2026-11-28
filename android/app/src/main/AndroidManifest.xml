@@ -45,7 +45,7 @@
         android:label="SyncroUmbral"
         android:icon="@mipmap/ic_launcher"
         android:roundIcon="@mipmap/ic_launcher_round"
-        android:theme="@android:style/Theme.Material.NoActionBar">
+        android:theme="@style/Umbral">
 
         <activity
             android:name=".MainActivity"
@@ -112,6 +112,7 @@
             android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
             </intent-filter>
         </receiver>
     </application>

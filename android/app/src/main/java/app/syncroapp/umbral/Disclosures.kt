@@ -53,6 +53,11 @@ object Disclosures {
         "SyncroUmbral necesita mostrarse sobre otras apps para abrir la pantalla de una llamada de WhatsApp u otra app " +
             "cuando usted pulsa Contestar en el PC. No lee lo que hay en su pantalla."
 
+    val AUTOSTART =
+        "En teléfonos Xiaomi, Redmi y POCO, el sistema cierra las apps en segundo plano aunque tengan todos los permisos. " +
+            "En la pantalla que se abre, active «Inicio automático» para SyncroUmbral. Conviene además, en las apps recientes, " +
+            "mantener pulsada SyncroUmbral y tocar el candado. No transmite datos."
+
     val BATTERY =
         "Para que Android no corte la conexión con su PC al apagarse la pantalla, quite a SyncroUmbral la optimización de " +
             "batería. En la pantalla que se abre, entre en Batería y elija «Sin restricciones». No transmite datos."
