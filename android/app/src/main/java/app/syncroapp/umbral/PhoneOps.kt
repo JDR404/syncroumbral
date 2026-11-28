@@ -105,7 +105,7 @@ object PhoneOps {
         val uri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM) ?: RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE)
         val r = RingtoneManager.getRingtone(ctx, uri)
         r.audioAttributes = AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_ALARM).setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION).build()
-        r.isLooping = true
+        if (android.os.Build.VERSION.SDK_INT >= 28) r.isLooping = true // en Android 8 suena una sola vez
         r.play()
         ringtone = r
         main.postDelayed(autoStop, 60_000) // nunca queda sonando para siempre

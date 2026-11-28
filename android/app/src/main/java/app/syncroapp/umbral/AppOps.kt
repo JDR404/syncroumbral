@@ -24,7 +24,8 @@ object AppOps {
         else -> throw IllegalArgumentException("Operación desconocida: $op")
     }
 
-    @Suppress("DEPRECATION")
+    // Con el bloque <queries> del manifiesto se ven las apps con icono en el lanzador y las que Android muestra a todas.
+    @Suppress("DEPRECATION", "QueryPermissionsNeeded")
     private fun list(ctx: Context): JSONObject {
         val pm = ctx.packageManager
         val arr = JSONArray()

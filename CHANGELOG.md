@@ -2,6 +2,23 @@
 
 ## Sin publicar
 
+## 0.7.8 — 2026-11-27
+
+### Qué ha cambiado
+- **Notificaciones que dejaban de llegar** (visto en un Xiaomi): si Android apaga el lector de notificaciones, la app ahora pide reactivarlo sola y, si no puede, lo avisa en Inicio con un botón «Reactivar».
+- **La conexión vuelve sola después de actualizar la app del móvil**; antes había que abrirla.
+- **Xiaomi, Redmi y POCO**: nuevo paso «Inicio automático» en Permisos, que abre la pantalla del sistema. Sin él, el teléfono cierra la app aunque tenga todos los permisos.
+- **Los archivos van a Descargas/SyncroUmbral**: lo enviado del PC al móvil cae ahí (si no has abierto otra carpeta en el panel «Móvil»), y lo que traes al PC, en Descargas\SyncroUmbral.
+- **Ventana de «Enviar al PC» nueva** y avisos de la app con el mismo diseño.
+- **El móvil explica qué datos usa antes de pedirlos**: al abrir la app y antes de cada permiso aparece un aviso con qué se transmite, para qué y que va solo a tu PC, con la opción de no aceptar.
+- **«Configurar paso a paso»** en Permisos: recorre los permisos que faltan y, si Android bloquea uno por haber instalado desde un APK, explica cómo desbloquearlo y abre la pantalla.
+- La sección Info tiene la política de privacidad y las instrucciones actualizadas.
+- La lista de aplicaciones del PC muestra las que tienen icono en el móvil.
+
+### Detalles técnicos
+- Preparación para Google Play (ver `docs/PLAY.md`): `targetSdk` 36, Android Gradle Plugin 8.9.1 y Gradle 8.11.1, servicio en primer plano `connectedDevice`, `<queries>` en lugar de `QUERY_ALL_PACKAGES`, sin `REQUEST_IGNORE_BATTERY_OPTIMIZATIONS`, telefonía opcional, se genera el `.aab`.
+- Corregido: «Hacer sonar» fallaba en Android 8 (`setLooping` es de Android 9).
+
 ## 0.7.7 — 2026-11-25
 
 ### Qué ha cambiado

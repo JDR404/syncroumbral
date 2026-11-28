@@ -84,4 +84,4 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
       - name: "Compilar release (R8 activado; sin clave sale sin firmar)"
         working-directory: android
-        run: ./gradlew assembleRelease --no-daemon
+        run: ./gradlew assembleRelease bundleRelease lintRelease --no-daemon

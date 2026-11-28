@@ -48,6 +48,16 @@ class Store(context: Context) {
         set(v) = prefs.edit().putBoolean("advanced", v).apply()
 
     /** Servicios de accesibilidad cuyo aviso el usuario ya descartó (lista separada por comas). */
+    /** El usuario leyó y aceptó el aviso general de datos (requisito para vincular un PC). Se pide de nuevo al desvincular. */
+    var consent: Boolean
+        get() = prefs.getBoolean("consent", false)
+        set(v) = prefs.edit().putBoolean("consent", v).apply()
+
+    /** El usuario confirmó que activó «Inicio automático» (Xiaomi): Android no deja comprobarlo. */
+    var autostartDone: Boolean
+        get() = prefs.getBoolean("autostartDone", false)
+        set(v) = prefs.edit().putBoolean("autostartDone", v).apply()
+
     var dismissedA11y: String
         get() = prefs.getString("dismissedA11y", "") ?: ""
         set(v) = prefs.edit().putString("dismissedA11y", v).apply()

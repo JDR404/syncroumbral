@@ -26,7 +26,7 @@ class LinkService : Service() {
         )
         ServiceCompat.startForeground(
             this, NOTIF_ID, buildNotification(),
-            if (Build.VERSION.SDK_INT >= 34) ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE else 0
+            if (Build.VERSION.SDK_INT >= 29) ServiceInfo.FOREGROUND_SERVICE_TYPE_CONNECTED_DEVICE else 0
         )
         Status.onChange = { nm.notify(NOTIF_ID, buildNotification()) }
         KeyManager.ensureKey()
